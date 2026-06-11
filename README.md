@@ -61,7 +61,7 @@ gracefully — add keys as you go:
 | Capability | Needs | Cost |
 |---|---|---|
 | ATS discovery (Greenhouse/Lever/Ashby/SmartRecruiters boards) | **nothing** — public JSON + a `companies.yaml` watchlist | free |
-| Auto-triage, PDF parsing, outreach drafts | `ANTHROPIC_API_KEY` | pennies/day (Haiku) |
+| Auto-triage, PDF parsing, outreach drafts | any ONE of: `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `LLM_BASE_URL`+`LLM_MODEL` (OpenRouter, Ollama, Groq, any OpenAI-compatible gateway) | pennies/day — or free with local Ollama |
 | Neural search + warm paths (alumni/ex-colleagues) + fit scores | `EXA_API_KEY` | free tier OK |
 | LinkedIn job discovery | `APIFY_TOKEN` | ~cents/run |
 | Web dashboard (queue actions, run-now, outreach buttons) | PocketBase (single binary) + any Linux box | ~$5/mo VPS |
@@ -95,6 +95,18 @@ availability, minimum-offer indicator, hard NOs.
    companies at each shortlisted firm, ranked, with a drafted intro message.
 5. Companies where your network clusters get their whole board watched — a flywheel.
 
+## Install as a Claude Code skill (optional)
+
+Make the whole workflow conversational — "tailor my CV for this url", "who do
+I know at Datadog?" — by installing the bundled skill:
+
+```bash
+cp -r skill/forwardrole ~/.claude/skills/
+```
+
+Claude Code then drives this repo's agents and pipeline whenever you talk
+about your job search, from any directory.
+
 ## Repo map
 
 ```
@@ -105,6 +117,7 @@ app/               Next.js dashboard (multi-user, PocketBase auth)
 profiles/example/  sanitized example profile
 jobs/queue.md      the shared role queue (one line per role, tagged per profile)
 pb_migrations/     PocketBase schema (users.profile field)
+skill/             installable Claude Code skill (cp -r skill/forwardrole ~/.claude/skills/)
 ```
 
 ## Operating model

@@ -52,26 +52,39 @@ ${body.introAngle ? `Suggested angle: ${String(body.introAngle)}` : ""}
 
 Output ONLY the message text.`;
 
-  // ANTHROPIC_API_KEY → api.anthropic.com (anywhere); unset → exe.dev gateway.
-  const key = (process.env.ANTHROPIC_API_KEY || "").trim();
-  const llmUrl = key
-    ? "https://api.anthropic.com/v1/messages"
-    : "http://169.254.169.254/gateway/llm/anthropic/v1/messages";
-  const res = await fetch(llmUrl, {
+  // Provider resolution mirrors pi/llm.ts: OpenAI-compatible LLM_BASE_URL →
+  // ANTHROPIC_API_KEY → OPENAI_API_KEY → exe.dev link-local gateway.
+  const compatUrl = (process.env.LLM_BASE_URL || "").trim().replace(/\/+$/, "");
+  const anthropicKey = (process.env.ANTHROPIC_API_KEY || "").trim();
+  const openaiKey = (process.env.OPENAI_API_KEY || "").trim();
+  const useCompat = !!compatUrl || (!anthropicKey && !!openaiKey);
+  const url = compatUrl
+    ? `${compatUrl}/chat/completions`
+    : anthropicKey
+      ? "https://api.anthropic.com/v1/messages"
+      : openaiKey
+        ? "https://api.openai.com/v1/chat/completions"
+        : "http://169.254.169.254/gateway/llm/anthropic/v1/messages";
+  const key = compatUrl ? (process.env.LLM_API_KEY || "").trim() : anthropicKey || openaiKey;
+  const model = useCompat
+    ? (compatUrl ? (process.env.LLM_MODEL || "").trim() : "") || "gpt-4o-mini"
+    : "claude-haiku-4-5";
+  const res = await fetch(url, {
     method: "POST",
-    headers: { "content-type": "application/json", "anthropic-version": "2023-06-01", ...(key ? { "x-api-key": key } : {}) },
-    body: JSON.stringify({
-      model: "claude-haiku-4-5",
-      max_tokens: 300,
-      messages: [{ role: "user", content: prompt }],
-    }),
+    headers: {
+      "content-type": "application/json",
+      ...(useCompat
+        ? key ? { authorization: `Bearer ${key}` } : {}
+        : { "anthropic-version": "2023-06-01", ...(key ? { "x-api-key": key } : {}) }),
+    },
+    body: JSON.stringify({ model, max_tokens: 300, messages: [{ role: "user", content: prompt }] }),
     signal: AbortSignal.timeout(30000),
   }).catch(() => null);
   if (!res || !res.ok) {
-    return new NextResponse(`gateway error${res ? ` (${res.status})` : ""}`, { status: 502 });
+    return new NextResponse(`llm error${res ? ` (${res.status})` : ""}`, { status: 502 });
   }
-  const d = (await res.json()) as { content?: { text?: string }[] };
-  const draft = (d.content?.[0]?.text || "").trim();
+  const d = (await res.json()) as { content?: { text?: string }[]; choices?: { message?: { content?: string } }[] };
+  const draft = (useCompat ? d.choices?.[0]?.message?.content || "" : d.content?.[0]?.text || "").trim();
   if (!draft) return new NextResponse("empty draft", { status: 502 });
   return NextResponse.json({ ok: true, draft });
 }
