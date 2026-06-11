@@ -12,10 +12,7 @@ import * as yaml from 'js-yaml'
 
 const ROOT = path.resolve(__dirname, '..')
 const QUEUE_PATH = path.join(ROOT, 'jobs', 'queue.md')
-// Publishing the shareable page is OPT-IN: set HERENOW_PUBLISH_SCRIPT to a
-// here.now publish script. Unset = render locally only (the dashboard still
-// serves everything).
-const HERENOW_SCRIPT = process.env.HERENOW_PUBLISH_SCRIPT || ''
+const HERENOW_SCRIPT = process.env.HERENOW_PUBLISH_SCRIPT || '/Users/aletviegas/.claude/skills/here-now/scripts/publish.sh'
 
 interface SearchConfig {
   enrichment?: { alumni_network?: { label?: string; school?: string } }
@@ -106,6 +103,28 @@ function readAlumni(profile: string): Record<string, AlumniRec[]> {
   } catch { return {} }
 }
 
+// Every network the candidate belongs to (schools + past employers), for the
+// per-company "Find <network> on LinkedIn" deep-link rows. From alumni.json,
+// with the configured school as a guaranteed member.
+interface Network { label: string; query: string }
+function readNetworks(profile: string, school: string, schoolLabel: string): Network[] {
+  const out: Network[] = []
+  const seen = new Set<string>()
+  const add = (label: string, query: string) => {
+    if (!query || seen.has(query.toLowerCase())) return
+    seen.add(query.toLowerCase())
+    out.push({ label, query })
+  }
+  if (school) add(schoolLabel || `${school.split(',')[0]} alumni`, school)
+  const pth = path.join(ROOT, 'profiles', profile, '.enrichment', 'alumni.json')
+  try {
+    const raw = JSON.parse(fs.readFileSync(pth, 'utf-8'))
+    for (const s of raw.schools || []) add(`${String(s).split(',')[0].replace(/\s+(University|College|Institute)( of.*)?$/i, '')} alumni`, String(s))
+    for (const c of raw.past_companies || []) add(`Ex-${c}`, `"${c}"`)
+  } catch { /* enrichment not run yet */ }
+  return out.slice(0, 4)
+}
+
 function readQueueEntries(profile: string): QueueEntry[] {
   const text = fs.readFileSync(QUEUE_PATH, 'utf-8')
   let inProcessed = false
@@ -193,9 +212,12 @@ ${cards}
   </section>`
 }
 
-function renderAlumniSection(alumni: Record<string, AlumniRec[]>, alumLabel: string): string {
+function renderAlumniSection(alumni: Record<string, AlumniRec[]>, alumLabel: string, networks: Network[]): string {
   const companies = Object.keys(alumni)
   if (!companies.length) return ''
+  const netLinks = (co: string) => networks.map((n) =>
+    `<a class="cornell-deep-link" href="${escapeHtml(linkedinAlumniSearchUrl(co, n.query))}" target="_blank" rel="noopener">Find ${escapeHtml(n.label)} ↗</a>`,
+  ).join(' ')
   const singular = alumLabel.replace(/s$/, '')
   const tie = (p: AlumniRec) => {
     if (p.path === 'ex-colleague') {
@@ -217,12 +239,12 @@ function renderAlumniSection(alumni: Record<string, AlumniRec[]>, alumLabel: str
         ${p.reason ? `<p class="rec-reason">${escapeHtml(p.reason)}</p>` : ''}
         ${p.intro_angle ? `<p class="rec-intro"><b>Intro angle:</b> ${escapeHtml(p.intro_angle)}</p>` : ''}
       </div>`).join('\n')
-    return `<div class="alum-co"><h3 class="alum-co-name">${escapeHtml(co)}</h3>${cards}</div>`
+    return `<div class="alum-co"><h3 class="alum-co-name">${escapeHtml(co)}</h3><div class="cornell-row" style="margin:4px 0 10px">${netLinks(co)}</div>${cards}</div>`
   }).join('\n')
   return `<section class="signal-block">
-    <p class="kicker">${escapeHtml(alumLabel.toLowerCase())} — vetted warm intros</p>
+    <p class="kicker">your networks — vetted warm intros</p>
     <h2>Who to actually reach out to</h2>
-    <p class="lede">Real people at your shortlisted firms — fact-checked for current role and ${escapeHtml(alumLabel)} tie, ranked by how useful a warm intro would be, each with a suggested angle. Not a keyword search.</p>
+    <p class="lede">Real people at your shortlisted firms — every network you belong to (school and past employers), fact-checked for current role and tie, ranked by how useful a warm intro would be, each with a suggested angle.</p>
 ${blocks}
   </section>`
 }
@@ -257,11 +279,11 @@ function roleSummary(active: QueueEntry[]): string {
   return `${count} hand-screened ${roleWord}${pay} at ${where} — each with its salary range, a sourced company brief, and a warm-intro path.`
 }
 
-function renderPage(profile: string, entries: QueueEntry[], state: EnrichmentState, apps: { company: string; score: number }[], external: ExternalResult[], confirmedAlumni: Record<string, AlumniRec[]>, fit: Record<string, { score: number }>): string {
+function renderPage(profile: string, entries: QueueEntry[], state: EnrichmentState, apps: { company: string; score: number }[], external: ExternalResult[], confirmedAlumni: Record<string, AlumniRec[]>, fit: Record<string, { score: number }>, networks: Network[]): string {
   const listings = state.listings || {}
   const alumni = state.alumni || {}
   const alumLabel = state.school_label || 'Alumni'
-  const school = state.school || ''
+  const school = state.school || 'Cornell University'
 
   const listed = entries.filter((e) => !listings[e.url] || listings[e.url] === 'ACTIVE')
   const expired = entries.filter((e) => listings[e.url] === 'EXPIRED')
@@ -360,7 +382,7 @@ function renderPage(profile: string, entries: QueueEntry[], state: EnrichmentSta
   </header>
 ${activeRows}
 ${renderExternalSection(external)}
-${renderAlumniSection(confirmedAlumni, alumLabel)}
+${renderAlumniSection(confirmedAlumni, alumLabel, networks)}
   ${expired.length > 0 ? `<section class="signal-block">
     <p class="kicker">company hiring signal</p>
     <h2>Recently closed at companies still hiring in your space</h2>
@@ -437,7 +459,8 @@ async function renderProfile(profile: string, doPublish: boolean): Promise<void>
   const alumni = readAlumni(profile)
   const fit = readFit(profile)
 
-  const html = renderPage(profile, entries, state, apps, external, alumni, fit)
+  const networks = readNetworks(profile, state.school || '', state.school_label || '')
+  const html = renderPage(profile, entries, state, apps, external, alumni, fit, networks)
   const outDir = `/tmp/render-${profile}`
   fs.mkdirSync(outDir, { recursive: true })
   fs.writeFileSync(path.join(outDir, 'index.html'), html)
@@ -459,7 +482,6 @@ async function renderProfile(profile: string, doPublish: boolean): Promise<void>
   }
 
   if (!doPublish) return
-  if (!HERENOW_SCRIPT) { console.log(`  ${profile}: HERENOW_PUBLISH_SCRIPT unset — skipping publish`); return }
   const slug = config.publish?.slug || null
   const existingPassword = config.publish?.password || null
   const claimedSlug = publishToHerenow(profile, outDir, slug)

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { RoleCard } from "./RoleCard";
 import { AddExternalForm } from "./AddExternalForm";
-import type { ExternalResult, AlumniPerson, CompanyDossier, FitEntry, SearchVersion, Decision } from "@/lib/profile";
+import type { ExternalResult, AlumniPerson, CompanyDossier, FitEntry, SearchVersion, Decision, NetworkAnchor } from "@/lib/profile";
 
 type Entry = { url: string; title: string; company: string };
 type TabId = "shortlist" | "external" | "alumni" | "companies" | "history";
@@ -22,6 +22,7 @@ interface Props {
   listingStatus: Record<string, "ACTIVE" | "EXPIRED" | "UNKNOWN">;
   tailoredByCompany: Record<string, number>;
   decisions: Record<string, Decision>;
+  networks: NetworkAnchor[];
 }
 
 function confirmedCount(a: Record<string, AlumniPerson[]>): number {
@@ -33,12 +34,20 @@ function alumniSearchUrl(company: string, school: string): string {
   return `https://www.linkedin.com/search/results/people/?keywords=${q}&origin=GLOBAL_SEARCH_HEADER`;
 }
 
+// Does this person belong to the selected network chip?
+function inNetwork(p: AlumniPerson, n: NetworkAnchor): boolean {
+  const via = (p.via || "").toLowerCase();
+  const anchor = n.name.toLowerCase().split(",")[0];
+  if (n.kind === "employer") return p.path === "ex-colleague" && via.includes(anchor.split(" ")[0]);
+  return p.path !== "ex-colleague" && (via.includes(anchor.split(" ")[0]) || (!p.via && !!p.cornell));
+}
+
 export function DashboardTabs(props: Props) {
   const [tab, setTab] = useState<TabId>("shortlist");
   const tabs: { id: TabId; label: string; count: number }[] = [
     { id: "shortlist", label: "Shortlist", count: props.active.length },
     { id: "external", label: "Other sources", count: props.external.length },
-    { id: "alumni", label: props.schoolLabel, count: confirmedCount(props.alumniByCompany) },
+    { id: "alumni", label: "Warm paths", count: confirmedCount(props.alumniByCompany) },
     { id: "companies", label: "Companies", count: props.companies.length },
     { id: "history", label: "History", count: props.searchHistory.length },
   ];
@@ -374,42 +383,78 @@ function CompaniesPanel({ companies }: { companies: CompanyDossier[] }) {
 }
 
 function AlumniPanel(props: Props) {
+  const [activeNet, setActiveNet] = useState<string>("all");
   const companies = Object.keys(props.alumniByCompany);
-  if (companies.length === 0) {
+  const selected = props.networks.find((n) => `${n.kind}:${n.name}` === activeNet) || null;
+  const netCount = (n: NetworkAnchor) =>
+    Object.values(props.alumniByCompany).reduce((acc, ppl) => acc + ppl.filter((p) => inNetwork(p, n)).length, 0);
+
+  if (companies.length === 0 && props.networks.length === 0) {
     return (
       <p className="text-sm text-zinc-500">
-        No {props.schoolLabel} recommendations yet. The enrichment pass populates this per shortlisted company.
+        No warm-path recommendations yet. The enrichment pass populates this per shortlisted company.
       </p>
     );
   }
+
+  const chip = (active: boolean) =>
+    `rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
+      active ? "bg-orange-900 text-white" : "bg-zinc-100 text-zinc-600 hover:bg-orange-100"
+    }`;
+
   return (
-    <div className="grid gap-8">
+    <div className="grid gap-6">
       <p className="text-xs leading-relaxed text-zinc-500">
-        Real people at your shortlisted firms — fact-checked for current role and {props.schoolLabel} tie,
-        ranked by how useful a warm intro would be, each with a suggested angle. Not a keyword search.
+        Real people at your shortlisted firms — every network you belong to, fact-checked for current role
+        and tie, ranked by how useful a warm intro would be, each with a suggested angle.
       </p>
-      {companies.map((co) => (
-        <section key={co}>
-          <div className="flex items-baseline justify-between">
+
+      {props.networks.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2">
+          <button onClick={() => setActiveNet("all")} className={chip(activeNet === "all")}>
+            All networks
+          </button>
+          {props.networks.map((n) => (
+            <button
+              key={`${n.kind}:${n.name}`}
+              onClick={() => setActiveNet(`${n.kind}:${n.name}`)}
+              className={chip(activeNet === `${n.kind}:${n.name}`)}
+              title={n.name}
+            >
+              {n.label}
+              <span className="ml-1 opacity-70">{netCount(n)}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {companies.map((co) => {
+        const people = props.alumniByCompany[co].filter((p) => !selected || inNetwork(p, selected));
+        if (people.length === 0) return null;
+        return (
+          <section key={co}>
             <h3 className="font-serif text-lg font-semibold">{co}</h3>
-            {props.school && (
-              <a
-                href={alumniSearchUrl(co, props.school)}
-                target="_blank"
-                rel="noopener"
-                className="text-xs text-zinc-400 hover:text-zinc-700"
-              >
-                search more ↗
-              </a>
-            )}
-          </div>
-          <div className="mt-2 grid gap-2">
-            {props.alumniByCompany[co].map((p) => (
-              <PersonRow key={p.url} p={p} schoolLabel={props.schoolLabel} profile={props.profile} company={co} />
-            ))}
-          </div>
-        </section>
-      ))}
+            <div className="mt-1 mb-2 flex flex-wrap gap-x-3 gap-y-1">
+              {props.networks.map((n) => (
+                <a
+                  key={`${co}:${n.kind}:${n.name}`}
+                  href={alumniSearchUrl(co, n.kind === "employer" ? `"${n.name}"` : n.name)}
+                  target="_blank"
+                  rel="noopener"
+                  className="text-[11px] font-semibold text-red-700 hover:underline"
+                >
+                  Find {n.label} at {co} ↗
+                </a>
+              ))}
+            </div>
+            <div className="grid gap-2">
+              {people.map((p) => (
+                <PersonRow key={p.url} p={p} schoolLabel={props.schoolLabel} profile={props.profile} company={co} />
+              ))}
+            </div>
+          </section>
+        );
+      })}
     </div>
   );
 }

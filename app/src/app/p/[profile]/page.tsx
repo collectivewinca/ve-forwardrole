@@ -96,6 +96,7 @@ export default async function ProfilePage({
             listingStatus={data.listingStatus}
             tailoredByCompany={data.tailoredByCompany}
             decisions={data.decisions}
+            networks={data.networks}
           />
         );
       })()}

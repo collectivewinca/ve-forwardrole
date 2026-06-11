@@ -1,7 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 
-const ROOT = process.env.VE_WORK_ROOT || `${process.env.HOME}/ve-work`;
+const ROOT = process.env.VE_WORK_ROOT || "/home/exedev/ve-work";
 
 export interface Profile {
   name: string;
@@ -22,6 +22,16 @@ export interface Profile {
   searchHistory: SearchVersion[];
   decisions: Record<string, Decision>;
   companiesYaml: string;
+  networks: NetworkAnchor[];
+}
+
+// One warm-path network the candidate belongs to — a school or past employer.
+// Sourced from alumni.json (written by enrich-exa) with graph.json as fallback,
+// so the chips render even before the first enrichment pass completes.
+export interface NetworkAnchor {
+  kind: "school" | "employer";
+  name: string;
+  label: string; // display: "Cornellians", "Pune alumni", "Ex-Mastercard"
 }
 
 // A snapshot of a prior shortlist, kept when the search parameters change.
@@ -150,7 +160,44 @@ export function readProfile(name: string): Profile | null {
     searchHistory: readSearchHistory(name),
     decisions: readDecisions(name),
     companiesYaml: readCompaniesYaml(name),
+    networks: readNetworks(name, enrichment.school_label, extractYamlField(searchYaml, "alumni_network", "school")),
   };
+}
+
+function networkLabel(kind: "school" | "employer", anchor: string, configured?: { school?: string | null; label?: string | null }): string {
+  if (kind === "employer") return `Ex-${anchor}`;
+  // Preserve a hand-configured label ("Cornellians") for the configured school.
+  if (configured?.label && configured.school && anchor.toLowerCase().startsWith(configured.school.toLowerCase().split(",")[0])) {
+    return configured.label;
+  }
+  return `${anchor.split(",")[0].replace(/\s+(university|college|institute|school)( of.*)?$/i, "").trim()} alumni`;
+}
+
+function readNetworks(profile: string, configuredLabel?: string, configuredSchool?: string | null): NetworkAnchor[] {
+  const configured = { school: configuredSchool, label: configuredLabel };
+  const out: NetworkAnchor[] = [];
+  const seen = new Set<string>();
+  const add = (kind: "school" | "employer", name: string) => {
+    const key = `${kind}:${name.toLowerCase()}`;
+    if (!name || seen.has(key)) return;
+    seen.add(key);
+    out.push({ kind, name, label: networkLabel(kind, name, configured) });
+  };
+  const alumniPath = path.join(ROOT, "profiles", profile, ".enrichment", "alumni.json");
+  try {
+    const raw = JSON.parse(fs.readFileSync(alumniPath, "utf-8"));
+    (raw.schools || []).forEach((s: string) => add("school", s));
+    (raw.past_companies || []).forEach((c: string) => add("employer", c));
+  } catch { /* fall through to graph */ }
+  if (out.length === 0) {
+    try {
+      const g = JSON.parse(fs.readFileSync(path.join(ROOT, "profiles", profile, ".enrichment", "graph.json"), "utf-8"));
+      (g.schools || []).forEach((s: { name: string }) => add("school", s.name));
+      (g.employers || []).filter((e: { current: boolean }) => !e.current).slice(0, 3)
+        .forEach((e: { name: string }) => add("employer", e.name));
+    } catch { /* no enrichment yet */ }
+  }
+  return out;
 }
 
 function readSearchHistory(profile: string): SearchVersion[] {
