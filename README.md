@@ -8,6 +8,7 @@ invents a skill, a date, or a job you didn't have.
 Not a mass-apply bot. One well-tailored application beats ten generic ones.
 
 **→ [How it works + why each tool is in the stack](docs/HOW-IT-WORKS.md)** (workflow diagram inside)
+· **[Landing page](https://merry-olive-scn7.here.now/)** (share this link)
 
 Built on [Claude Code](https://claude.com/claude-code). Multi-profile: run it for
 yourself and your friends without mixing anyone's data.

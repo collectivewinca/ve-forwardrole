@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>ve-forwardrole — a quality-first job-search robot</title>
+<meta name="description" content="Finds senior roles worth your time, maps warm intros (alumni + ex-colleagues), scores JD fit, and tailors every application in your voice. Never invents experience. Open source, built on Claude Code."/>
+<style>
+  :root{
+    --ink:#1a1a1a; --muted:#6b6b6b; --rule:#e6e6e6; --accent:#8a3a1a; --accent-d:#6e2c10;
+    --bg:#fdfaf5; --paper:#fff; --highlight:#f5edd9; --green:#0f7a4d; --blue:#0f4d7a;
+    --signal:#f4f1ea; --signal-b:#d8cdb5;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--ink)}
+  body{font-family:'Charter','Iowan Old Style',Georgia,serif;font-size:17px;line-height:1.6;-webkit-font-smoothing:antialiased}
+  .sans{font-family:Inter,system-ui,sans-serif}
+  main{max-width:880px;margin:0 auto;padding:0 22px 90px}
+  .kicker{font-family:Inter,system-ui,sans-serif;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);font-weight:700;margin:0 0 10px}
+  /* hero */
+  header.hero{padding:78px 0 48px;border-bottom:1px solid var(--rule)}
+  h1{font-size:54px;line-height:1.04;letter-spacing:-.015em;font-weight:500;margin:0 0 18px}
+  h1 em{font-style:italic;color:var(--accent)}
+  .lede{font-size:21px;line-height:1.5;color:#3a3a3a;max-width:680px;margin:0 0 14px}
+  .sub{font-family:Inter,system-ui,sans-serif;font-size:14.5px;color:var(--muted);max-width:640px;margin:0 0 28px}
+  .cta-row{display:flex;gap:12px;flex-wrap:wrap}
+  .btn{font-family:Inter,system-ui,sans-serif;font-size:14px;font-weight:600;padding:12px 22px;border-radius:6px;text-decoration:none;display:inline-block}
+  .btn-primary{background:var(--accent);color:#fff}
+  .btn-primary:hover{background:var(--accent-d)}
+  .btn-ghost{border:1.5px solid var(--accent);color:var(--accent)}
+  .btn-ghost:hover{background:var(--accent);color:#fff}
+  .privacy{margin-top:22px;font-family:Inter,system-ui,sans-serif;font-size:13px;background:var(--highlight);border:1px solid #d8c89c;border-radius:6px;padding:12px 16px;max-width:640px;line-height:1.55}
+  /* sections */
+  section{padding:54px 0 0}
+  h2{font-size:30px;font-weight:500;letter-spacing:-.01em;margin:0 0 8px}
+  .section-lede{font-family:Inter,system-ui,sans-serif;font-size:15px;color:var(--muted);margin:0 0 30px;max-width:640px}
+  /* workflow phases */
+  .phase{background:var(--paper);border:1px solid var(--rule);border-radius:10px;padding:24px 26px;margin-bottom:14px;position:relative}
+  .phase-tag{font-family:Inter,system-ui,sans-serif;font-size:10.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#fff;background:var(--accent);border-radius:99px;padding:4px 12px;display:inline-block;margin-bottom:14px}
+  .phase.p2 .phase-tag{background:var(--blue)}
+  .phase.p3 .phase-tag{background:var(--green)}
+  .steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}
+  .step{background:var(--bg);border:1px solid var(--rule);border-radius:7px;padding:13px 14px}
+  .step b{font-family:Inter,system-ui,sans-serif;font-size:13px;display:block;margin-bottom:4px}
+  .step span{font-family:Inter,system-ui,sans-serif;font-size:12px;color:var(--muted);line-height:1.5;display:block}
+  .arrow{ text-align:center;color:var(--muted);font-size:18px;margin:2px 0 12px;font-family:Inter,system-ui,sans-serif}
+  .flywheel{font-family:Inter,system-ui,sans-serif;font-size:12.5px;color:#3a4a2a;background:#f1f4ea;border:1px solid #cfdcc0;border-radius:7px;padding:10px 14px;margin-top:12px;line-height:1.5}
+  /* day in the life */
+  .day{background:var(--signal);border:1px solid var(--signal-b);border-radius:10px;padding:26px 28px;font-size:17.5px;line-height:1.65}
+  .day .num{color:var(--accent);font-weight:700}
+  /* tools */
+  .tool{display:grid;grid-template-columns:170px 1fr;gap:18px;padding:18px 0;border-top:1px solid var(--rule)}
+  .tool:first-of-type{border-top:none}
+  .tool h3{font-size:17px;margin:0 0 2px}
+  .tool .role{font-family:Inter,system-ui,sans-serif;font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+  .tool p{font-family:Inter,system-ui,sans-serif;font-size:14px;color:#3a3a3a;margin:0;line-height:1.6}
+  .free-badge{font-family:Inter,system-ui,sans-serif;font-size:10px;font-weight:700;letter-spacing:.05em;background:var(--green);color:#fff;border-radius:99px;padding:2px 8px;vertical-align:middle;margin-left:6px;text-transform:uppercase}
+  .opt-badge{font-family:Inter,system-ui,sans-serif;font-size:10px;font-weight:700;letter-spacing:.05em;background:#e8e3d8;color:#7a6a4a;border-radius:99px;padding:2px 8px;vertical-align:middle;margin-left:6px;text-transform:uppercase}
+  /* principles */
+  .principles{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+  .principle{background:var(--paper);border:1px solid var(--rule);border-radius:8px;padding:18px 20px}
+  .principle b{font-family:Inter,system-ui,sans-serif;font-size:14px;display:block;margin-bottom:6px}
+  .principle span{font-family:Inter,system-ui,sans-serif;font-size:13px;color:var(--muted);line-height:1.55}
+  /* quickstart */
+  .quick{background:var(--paper);border:1px solid var(--rule);border-radius:10px;padding:26px 28px}
+  .quick ol{font-family:Inter,system-ui,sans-serif;font-size:15px;margin:0;padding-left:22px;line-height:2.0}
+  code{font-family:ui-monospace,Menlo,monospace;font-size:.86em;background:var(--signal);border:1px solid var(--signal-b);border-radius:4px;padding:1.5px 6px}
+  footer{border-top:1px solid var(--rule);margin-top:70px;padding-top:24px;font-family:Inter,system-ui,sans-serif;font-size:12.5px;color:var(--muted);text-align:center;line-height:1.7}
+  footer a{color:var(--accent)}
+  @media(max-width:640px){h1{font-size:38px}.lede{font-size:18px}.tool{grid-template-columns:1fr;gap:6px}}
+</style>
+</head>
+<body>
+<main>
+
+<header class="hero">
+  <p class="kicker">ve-forwardrole · open source · MIT</p>
+  <h1>Stop applying.<br/>Start <em>forwarding</em> your role.</h1>
+  <p class="lede">A quality-first job-search robot. It finds senior roles you'd actually take, maps a warm way into every company — alumni and ex-colleagues — scores how well each role fits you, and tailors your CV and cover letter in your own voice.</p>
+  <p class="sub">Never invents a skill, a date, or a job you didn't have. Not a mass-apply bot: one well-tailored application beats ten generic ones. Built on Claude Code; runs for you and your friends without mixing anyone's data.</p>
+  <div class="cta-row">
+    <a class="btn btn-primary" href="https://github.com/collectivewinca/ve-forwardrole" target="_blank" rel="noopener">Use the template on GitHub →</a>
+    <a class="btn btn-ghost" href="https://github.com/collectivewinca/ve-forwardrole/blob/main/docs/HOW-IT-WORKS.md" target="_blank" rel="noopener">Read the deep-dive</a>
+  </div>
+  <p class="privacy"><b>Your data stays yours.</b> Click <i>"Use this template"</i> for a <b>private</b> copy — your queue holds your real job hunt, so it never belongs in a public fork. Every instance is sovereign: your operator, your box, no telemetry, no shared backend.</p>
+</header>
+
+<section>
+  <p class="kicker">the workflow</p>
+  <h2>Three phases, one shortlist worth your time</h2>
+  <p class="section-lede">Set up once, let the cycle run twice a day, apply only when something clears the bar.</p>
+
+  <div class="phase">
+    <span class="phase-tag">1 · Once — onboarding</span>
+    <div class="steps">
+      <div class="step"><b>LinkedIn "Save to PDF"</b><span>Claude parses it into a structured profile — verbatim, never embellished.</span></div>
+      <div class="step"><b>Five questions</b><span>Role keywords, locations, availability, the minimum offer you'd consider, hard NOs.</span></div>
+      <div class="step"><b>Warm-path anchors</b><span>Every school you attended and company you worked at becomes a way in.</span></div>
+    </div>
+  </div>
+  <div class="arrow">↓</div>
+  <div class="phase p2">
+    <span class="phase-tag">2 · Every 12 hours — the robot</span>
+    <div class="steps">
+      <div class="step"><b>Keyword expansion</b><span>"Head of Product" also searches CPO, VP Product, GM — Claude adds the titles the market actually posts.</span></div>
+      <div class="step"><b>3-source discovery</b><span>ATS boards (free public JSON) + LinkedIn (Apify) + Exa neural search, deduped into one queue.</span></div>
+      <div class="step"><b>AI triage</b><span>Wrong seniority, wrong country, lowball comp, no visa sponsorship, hard NOs — killed with a written reason.</span></div>
+      <div class="step"><b>Warm paths + fit</b><span>Alumni and ex-colleagues at each company, ranked with intro angles; every JD scored 0–10 against your profile.</span></div>
+      <div class="step"><b>Dashboard + digest</b><span>Fit-ranked cards with star / applied / skip, one-click outreach drafts, and a morning Telegram top-3.</span></div>
+    </div>
+    <div class="flywheel">⟳ <b>The flywheel:</b> companies where your network clusters get their entire job board watched on the next run — your contacts compound into coverage.</div>
+  </div>
+  <div class="arrow">↓</div>
+  <div class="phase p3">
+    <span class="phase-tag">3 · When you pick a role — Claude Code</span>
+    <div class="steps">
+      <div class="step"><b>job-reader</b><span>Requirements, red flags, salary, visa — structured before you invest a minute.</span></div>
+      <div class="step"><b>cv-tailor</b><span>Reorders and reframes your real experience. Shows its reasoning first, with a match score.</span></div>
+      <div class="step"><b>cover-letter-writer</b><span>Three paragraphs in your voice. No template smell.</span></div>
+      <div class="step"><b>application-tracker</b><span>Everything logged, per person, never mixed.</span></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <p class="kicker">a day in the life</p>
+  <div class="day">
+    The 07:00 run finds <span class="num">40 roles</span> across three sources. Triage kills <span class="num">25</span> — wrong seniority, below your floor, no sponsorship. The <span class="num">15 survivors</span> get fit scores and warm paths, your dashboard re-ranks, and your morning Telegram reads: <i>"1.&nbsp;Product Lead @ Canary · fit 9/10 · 5 warm paths."</i> You star two, skip six (skips are remembered — they never come back), send a drafted note to the ex-colleague at your top pick, and tailor one application in Claude Code. <b>Ten minutes. All signal.</b>
+  </div>
+</section>
+
+<section>
+  <p class="kicker">the stack, justified</p>
+  <h2>Why these tools — and not alternatives</h2>
+  <p class="section-lede">Every dependency is optional and earns its place. Remove a key and you lose a capability, never the system.</p>
+
+  <div class="tool"><div><h3>Claude / Claude Code</h3><div class="role">the judgment</div></div>
+    <p>The hard work here is judgment, not retrieval — "is Director-level right for this person?", "reframe without inventing". The bundled agents enforce rules a template engine can't: never fabricate experience, always show reasoning. And the repo <i>is</i> the interface — open it in Claude Code and the agents just load.</p></div>
+
+  <div class="tool"><div><h3>ATS public boards<span class="free-badge">free</span></h3><div class="role">the default firehose</div></div>
+    <p>Greenhouse, Lever, Ashby and SmartRecruiters expose their boards as public JSON by design. The only unlimited, ToS-clean, zero-account source — one watchlist company = its entire board, every run. This is the default source precisely because it costs nothing.</p></div>
+
+  <div class="tool"><div><h3>Apify<span class="opt-badge">optional</span></h3><div class="role">linkedin discovery</div></div>
+    <p>LinkedIn has no public jobs API and aggressively blocks scrapers. Apify maintains the actors and rotates the infrastructure — you rent the cat-and-mouse game instead of playing it. Drop it and the other two sources still feed you.</p></div>
+
+  <div class="tool"><div><h3>Exa<span class="opt-badge">free tier</span></h3><div class="role">the network engine</div></div>
+    <p>Keyword search can't answer <i>"people who worked at Mastercard, now at Pagaya"</i> or <i>"Cornell alumni at Datadog in senior product roles."</i> Exa's neural search can — with per-result facts the pipeline verifies before showing you a name. This is what turns a job list into a network strategy.</p></div>
+
+  <div class="tool"><div><h3>Any LLM provider<span class="free-badge">byom</span></h3><div class="role">no vendor lock</div></div>
+    <p>The brain resolves whichever you set: an OpenAI-compatible gateway (OpenRouter, Groq, a <b>local Ollama — free</b>), an Anthropic key, or an OpenAI key. One env variable, your choice of model economics.</p></div>
+
+  <div class="tool"><div><h3>PocketBase<span class="opt-badge">dashboard only</span></h3><div class="role">auth in one binary</div></div>
+    <p>Login, admin UI and migrations in a single executable. The alternative is running Postgres plus an auth service for what amounts to five user rows per instance. <code>./pocketbase serve</code> — done.</p></div>
+
+  <div class="tool"><div><h3>git + pull requests</h3><div class="role">the audit trail</div></div>
+    <p>Every discovery run is a commit; every queue change is a diff. The robot's decisions are reviewable and revertable — a database would hide them, a markdown file in git makes the robot accountable by reading the history.</p></div>
+
+  <div class="tool"><div><h3>cron, Telegram, here.now<span class="opt-badge">optional</span></h3><div class="role">the plumbing</div></div>
+    <p>Boring on purpose. cron because the pipeline is idempotent scripts; Telegram because a morning push shouldn't require building an app; here.now so a mentor can see your shortlist behind a password without getting a dashboard login.</p></div>
+</section>
+
+<section>
+  <p class="kicker">design principles</p>
+  <h2>Why you can trust it with your job hunt</h2>
+  <div class="principles" style="margin-top:26px">
+    <div class="principle"><b>Degrades gracefully</b><span>The free tier — ATS boards + Claude Code — is a complete product. Keys add capabilities; their absence never breaks the system.</span></div>
+    <div class="principle"><b>Never invents</b><span>The parser and tailor are constitutionally forbidden from fabricating skills, dates, or jobs. Tailoring reorders and reframes what's true.</span></div>
+    <div class="principle"><b>Files over databases</b><span>Profiles, queue, decisions — markdown and JSON in your repo. Greppable, diffable, portable, yours.</span></div>
+    <div class="principle"><b>Bring your own model</b><span>Anthropic, OpenAI, OpenRouter, or a local Ollama. One variable; never locked to a vendor.</span></div>
+    <div class="principle"><b>Private by default</b><span>One instance = one operator + their people. No SaaS, no telemetry, no shared backend.</span></div>
+    <div class="principle"><b>Quality over volume</b><span>It will never mass-apply. The constraint is the feature: ten minutes a day, all signal.</span></div>
+  </div>
+</section>
+
+<section>
+  <p class="kicker">get started</p>
+  <h2>Ten minutes, zero new accounts</h2>
+  <div class="quick" style="margin-top:24px">
+    <ol>
+      <li>On <a href="https://github.com/collectivewinca/ve-forwardrole" target="_blank" rel="noopener" style="color:var(--accent)">GitHub</a>, click <b>"Use this template"</b> → create a <b>private</b> copy → clone it.</li>
+      <li>LinkedIn → <i>More</i> → <i>Save to PDF</i> → drop it at <code>profiles/me/linkedin.pdf</code>.</li>
+      <li>Open the repo in <b>Claude Code</b> and say: <code>Run linkedin-parser on profiles/me/linkedin.pdf</code></li>
+      <li>Paste a job URL into <code>jobs/queue.md</code> and ask for a tailored CV. That's the whole loop.</li>
+      <li><i>Later, if you want the robot:</i> <code>bash setup.sh</code>, add any one LLM key, set the cron. The README walks you through it.</li>
+    </ol>
+  </div>
+</section>
+
+<section>
+  <p class="kicker">full setup reference</p>
+  <h2>Every command you'll need</h2>
+  <p class="section-lede">Copy-paste friendly. The repo: <a href="https://github.com/collectivewinca/ve-forwardrole" style="color:var(--accent)"><b>github.com/collectivewinca/ve-forwardrole</b></a></p>
+
+  <div class="quick" style="margin-bottom:14px">
+    <p class="sans" style="font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 10px">Create your private copy (CLI route)</p>
+    <pre style="margin:0;overflow:auto;font-family:ui-monospace,Menlo,monospace;font-size:13px;line-height:1.7;background:var(--signal);border:1px solid var(--signal-b);border-radius:6px;padding:14px 16px">gh repo create YOU/my-forwardrole --private \
+  --template collectivewinca/ve-forwardrole --clone
+cd my-forwardrole &amp;&amp; npm install</pre>
+  </div>
+
+  <div class="quick" style="margin-bottom:14px">
+    <p class="sans" style="font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 10px">Make it conversational — install the bundled Claude Code skill</p>
+    <pre style="margin:0;overflow:auto;font-family:ui-monospace,Menlo,monospace;font-size:13px;line-height:1.7;background:var(--signal);border:1px solid var(--signal-b);border-radius:6px;padding:14px 16px">cp -r skill/forwardrole ~/.claude/skills/</pre>
+    <p class="sans" style="font-size:13px;color:var(--muted);margin:10px 0 0">Then, from any directory: <i>"tailor my CV for &lt;url&gt;"</i>, <i>"who do I know at Datadog?"</i>, <i>"find me roles"</i> — Claude Code drives the whole workflow.</p>
+  </div>
+
+  <div class="quick" style="margin-bottom:14px">
+    <p class="sans" style="font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 10px">Turn on the robot (any Linux box or VPS)</p>
+    <pre style="margin:0;overflow:auto;font-family:ui-monospace,Menlo,monospace;font-size:13px;line-height:1.7;background:var(--signal);border:1px solid var(--signal-b);border-radius:6px;padding:14px 16px">bash setup.sh                      # deps + .env + capability checklist
+# .env — set ANY ONE brain:
+#   ANTHROPIC_API_KEY=...            (recommended)
+#   OPENAI_API_KEY=...
+#   LLM_BASE_URL=http://localhost:11434/v1  LLM_MODEL=llama3.1   (free, local Ollama)
+
+bash pi/onboard.sh --name=me --pdf=profiles/me/linkedin.pdf \
+  --keywords="head of product, VP product" --locations="New York, Remote"
+
+crontab -e                          # twice-daily; keep commands in the script —
+0 7,19 * * * bash $HOME/my-forwardrole/pi/run-pipeline.sh >> $HOME/my-forwardrole/pi/cron.log 2>&amp;1</pre>
+  </div>
+
+  <div class="quick">
+    <p class="sans" style="font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 10px">Accounts you might add later (all optional)</p>
+    <p class="sans" style="font-size:14px;line-height:1.9;margin:0;color:#3a3a3a">
+      <b>exa.ai</b> — free tier · unlocks warm paths + fit scores &nbsp;·&nbsp;
+      <b>apify.com</b> — ~cents/run · unlocks LinkedIn discovery &nbsp;·&nbsp;
+      <b>@BotFather</b> (Telegram) — free · morning digest &nbsp;·&nbsp;
+      <b>any $5 VPS</b> — runs the cron + dashboard.
+      ATS-board discovery needs <b>no account at all</b>.
+    </p>
+  </div>
+</section>
+
+<footer>
+  <a href="https://github.com/collectivewinca/ve-forwardrole">github.com/collectivewinca/ve-forwardrole</a> · MIT licensed<br/>
+  Built with Claude Code by VE LAB. Your job hunt stays on your machine.
+</footer>
+
+</main>
+</body>
+</html>
