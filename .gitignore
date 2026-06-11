@@ -1,0 +1,22 @@
+.DS_Store
+node_modules/
+dist/
+.env
+pi/discover.log
+
+# Friends' data never leaves your laptop — only the example profile is committed
+profiles/*/
+!profiles/example/
+profiles/example/linkedin.pdf
+profiles/example/profile.md
+profiles/example/applications.md
+profiles/example/search.yaml
+profiles/example/output/*.md
+profiles/example/output/*.json
+!profiles/example/output/.gitkeep
+.herenow/
+/app/node_modules
+/app/.next
+
+# rotating queue.md backups (local safety net)
+jobs/.queue-backups/

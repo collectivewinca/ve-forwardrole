@@ -1,0 +1,14 @@
+@import "tailwindcss";
+
+@theme inline {
+  --font-serif: "Charter", "Iowan Old Style", "Georgia", serif;
+  --font-sans: "Inter", system-ui, sans-serif;
+}
+
+html {
+  font-family: var(--font-sans);
+}
+
+.font-serif {
+  font-family: var(--font-serif);
+}

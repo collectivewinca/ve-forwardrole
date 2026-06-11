@@ -1,0 +1,14 @@
+# ve-work cron log rotation. Install to /etc/logrotate.d/ve-work (run daily by the
+# system logrotate cron; rotates on the weekly/size triggers below).
+#   sudo cp pi/ve-work.logrotate /etc/logrotate.d/ve-work && sudo chown root:root /etc/logrotate.d/ve-work
+/home/YOUR_USER/ve-work/pi/cron.log {
+    weekly
+    rotate 4
+    size 10M
+    compress
+    delaycompress
+    missingok
+    notifempty
+    copytruncate
+    create 0644 YOUR_USER YOUR_USER
+}

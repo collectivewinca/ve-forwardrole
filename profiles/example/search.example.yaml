@@ -1,0 +1,42 @@
+# Per-profile job search criteria. Copy to profiles/<name>/search.yaml
+# (search.yaml itself is gitignored — friends' filters stay local).
+
+keywords:
+  - "founder"
+  - "head of product"
+  - "AI"
+
+locations:
+  - "New York"
+  - "Remote"
+
+posted_within_days: 7
+
+experience_levels:
+  - "Director"
+  - "Executive"
+
+exclude_companies:
+  - "Some Company You Won't Work For"
+
+exclude_keywords:
+  - "unpaid"
+  - "internship"
+  - "commission only"
+
+max_results: 30
+
+# OPTIONAL: post-triage enrichment. Defaults to disabled.
+# enrichment:
+#   enabled: true
+#   validate_listings: true        # WebFetch each URL, flag "no longer accepting"
+#   alumni_network:
+#     enabled: true
+#     school: "Cornell University" # change per friend
+#     label: "Cornellians"
+
+# OPTIONAL: auto-publish a rendered shortlist page to here.now.
+# Run `npm run render -- --profile=<name>` once to bootstrap the slug;
+# afterwards the cron keeps it fresh.
+# publish:
+#   slug: "your-slug-here"

@@ -1,0 +1,49 @@
+{
+  "name": "ve-forwardrole",
+  "version": "0.1.0",
+  "description": "Quality-first job application agent. Tailors your CV, explains every choice, tracks what works.",
+  "scripts": {
+    "check": "ts-node src/hunt.ts",
+    "check:dry": "ts-node src/hunt.ts --dry-run",
+    "backup-queue": "bash pi/backup-queue.sh",
+    "archive-search": "ts-node pi/archive-search.ts",
+    "prediscover": "bash pi/backup-queue.sh && npm run archive-search",
+    "profile-graph": "ts-node pi/profile-graph.ts",
+    "expand-keywords": "ts-node pi/expand-keywords.ts",
+    "discover": "ts-node pi/discover.ts",
+    "discover:dry": "ts-node pi/discover.ts --dry-run",
+    "pretriage": "bash pi/backup-queue.sh",
+    "triage": "ts-node pi/triage.ts",
+    "triage:dry": "ts-node pi/triage.ts --dry-run",
+    "enrich": "ts-node pi/enrich.ts",
+    "enrich-exa": "ts-node pi/enrich-exa.ts",
+    "company-dossier": "ts-node pi/company-dossier.ts",
+    "jd-fit": "ts-node pi/jd-fit.ts",
+    "render": "ts-node pi/render.ts",
+    "render:local": "ts-node pi/render.ts --no-publish",
+    "parse-pdf": "ts-node pi/parse-pdf.ts",
+    "onboard": "bash pi/onboard.sh",
+    "status": "cat applications.md"
+  },
+  "keywords": [
+    "claude-code",
+    "job-hunting",
+    "ai-agent",
+    "career",
+    "typescript",
+    "anthropic",
+    "cv"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@types/pdf-parse": "^1.1.5",
+    "js-yaml": "^4.1.0",
+    "pdf-parse": "1.1.1"
+  },
+  "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^20.0.0",
+    "ts-node": "^10.9.0",
+    "typescript": "^5.0.0"
+  }
+}
