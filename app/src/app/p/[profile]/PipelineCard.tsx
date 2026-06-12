@@ -61,7 +61,7 @@ export function PipelineCard({ profile, initial }: { profile: string; initial: S
           </span>
         )}
         <span className="text-[11px] text-zinc-500">auto-runs 07:00 & 19:00 UTC</span>
-        <div className="ml-auto flex gap-2">
+        <div className="flex w-full gap-2 sm:ml-auto sm:w-auto">
           <button
             disabled={!!status.running}
             onClick={() => run("refresh")}

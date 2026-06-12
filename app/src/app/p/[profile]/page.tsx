@@ -24,7 +24,7 @@ export default async function ProfilePage({
   if (!data) notFound();
 
   return (
-    <main className="mx-auto max-w-3xl px-6 py-12">
+    <main className="mx-auto max-w-3xl px-4 py-8 sm:px-6 sm:py-12">
       <div className="flex items-center justify-between">
         <p className="text-xs font-bold uppercase tracking-widest text-orange-900">
           ve-work · {user.name}
@@ -43,7 +43,7 @@ export default async function ProfilePage({
         {data.queueEntries.length} queued role(s) · {data.outputFiles.length} tailored doc(s)
       </p>
 
-      <div className="mt-6 mb-10 flex gap-2">
+      <div className="mt-6 mb-10 flex flex-wrap gap-2">
         <Link
           href={`/p/${data.name}/edit` as never}
           className="rounded-md bg-orange-900 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-950"

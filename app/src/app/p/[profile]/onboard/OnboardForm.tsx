@@ -141,7 +141,7 @@ export default function OnboardForm({
         </section>
       )}
 
-      <section className="mt-6 grid grid-cols-2 gap-4">
+      <section className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
           <label className={labelCls}>{isNew ? "3 · " : ""}When could you start?</label>
           <select value={availability} onChange={(e) => setAvailability(e.target.value)} className={inputCls}>
@@ -196,7 +196,7 @@ export default function OnboardForm({
         />
       </section>
 
-      <section className="mt-6 grid grid-cols-2 gap-4">
+      <section className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
           <label className={labelCls}>Need visa sponsorship?</label>
           <select value={sponsorship} onChange={(e) => setSponsorship(e.target.value)} className={inputCls}>
@@ -217,7 +217,7 @@ export default function OnboardForm({
       <section className="mt-6">
         <label className={labelCls}>Telegram chat ID (optional — morning digest)</label>
         <input
-          placeholder="Message your bot once, then check getUpdates for the ID"
+          placeholder="Message @discoopsbot once, paste the ID it shows"
           value={telegramChat}
           onChange={(e) => setTelegramChat(e.target.value)}
           className={inputCls}
