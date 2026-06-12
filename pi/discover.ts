@@ -1,7 +1,7 @@
 #!/usr/bin/env npx ts-node
 // pi/discover.ts — Apify LinkedIn Jobs → jobs/queue.md
 //
-// Runs from the twice-daily cron. For each profiles/<name>/search.yaml,
+// Runs on ve-code via Pi cron. For each profiles/<name>/search.yaml,
 // calls an Apify LinkedIn Jobs actor, dedupes against the queue and
 // the profile's applications.md, and appends new URLs tagged with
 // the profile name.
@@ -14,6 +14,7 @@ import * as https from 'https'
 import * as child_process from 'child_process'
 import * as yaml from 'js-yaml'
 import { atsDiscover, AtsJob } from './sources/ats'
+import { runActorSync, apifyAvailable } from './apify'
 import { exaDiscover } from './sources/exa'
 
 const ROOT = path.resolve(__dirname, '..')
@@ -205,56 +206,23 @@ function buildLinkedInUrls(config: SearchConfig): string[] {
   return urls.slice(0, 10)
 }
 
-function callApify(config: SearchConfig): Promise<JobResult[]> {
-  const token = process.env.APIFY_TOKEN
-  const actor = process.env.APIFY_LINKEDIN_ACTOR || 'curious_coder~linkedin-jobs-scraper'
-  if (!token) throw new Error('APIFY_TOKEN not set in env')
-
-  // curious_coder/linkedin-jobs-scraper input shape:
-  //   urls: LinkedIn jobs search URLs to scrape
-  //   count: results cap
-  //   scrapeCompany: fetch company details per job (slower, costs more)
-  const input = {
+async function callApify(config: SearchConfig): Promise<JobResult[]> {
+  const actor = (process.env.APIFY_LINKEDIN_ACTOR || 'curious_coder~linkedin-jobs-scraper').replace('/', '~')
+  if (!apifyAvailable()) throw new Error('no APIFY_TOKEN configured')
+  const raw = await runActorSync(actor, {
     urls: buildLinkedInUrls(config),
     count: config.max_results || 30,
     scrapeCompany: false,
-  }
-
-  const url = `https://api.apify.com/v2/acts/${actor}/run-sync-get-dataset-items?token=${token}`
-  const body = JSON.stringify(input)
-
-  return new Promise((resolve, reject) => {
-    const req = https.request(
-      url,
-      { method: 'POST', headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) } },
-      (res) => {
-        const chunks: Buffer[] = []
-        res.on('data', (c: Buffer) => chunks.push(c))
-        res.on('end', () => {
-          const text = Buffer.concat(chunks).toString('utf-8')
-          if (res.statusCode && res.statusCode >= 400) {
-            return reject(new Error(`Apify ${res.statusCode}: ${text.slice(0, 300)}`))
-          }
-          try {
-            const raw = JSON.parse(text)
-            const items: JobResult[] = (Array.isArray(raw) ? raw : []).map((r: Record<string, unknown>) => ({
-              url: String(r.url || r.jobUrl || r.link || ''),
-              title: String(r.title || r.jobTitle || ''),
-              company: String(r.companyName || r.company || ''),
-              location: String(r.location || r.jobLocation || ''),
-              posted: (r.postedAt as string) || (r.publishedAt as string) || null,
-            }))
-            resolve(items.filter((j) => j.url.startsWith('http')))
-          } catch (e) {
-            reject(new Error(`Apify response parse error: ${(e as Error).message}`))
-          }
-        })
-      },
-    )
-    req.on('error', reject)
-    req.write(body)
-    req.end()
-  })
+  }, 240000)
+  if (raw === null) throw new Error('apify run failed (see log above)')
+  const items: JobResult[] = (raw as Record<string, unknown>[]).map((r) => ({
+    url: String(r.url || r.jobUrl || r.link || ''),
+    title: String(r.title || r.jobTitle || ''),
+    company: String(r.companyName || r.company || ''),
+    location: String(r.location || r.jobLocation || ''),
+    posted: (r.postedAt as string) || (r.publishedAt as string) || null,
+  }))
+  return items.filter((j) => j.url.startsWith('http'))
 }
 
 function applyExcludeFilters(jobs: JobResult[], config: SearchConfig): { kept: JobResult[]; dropped: number } {
@@ -311,30 +279,14 @@ function commitAndOpenPr(summary: string): void {
   child_process.execSync(`git -C "${ROOT}" checkout -b ${branch}`, { stdio: 'inherit' })
   child_process.execSync(`git -C "${ROOT}" add jobs/queue.md`, { stdio: 'inherit' })
   child_process.execSync(
-    `git -C "${ROOT}" -c user.name=forwardrole-cron -c user.email=cron@localhost commit -m "auto-discover: ${summary}"`,
+    `git -C "${ROOT}" -c user.name=pi-discover -c user.email=pi@ve-code.exe.xyz commit -m "auto-discover: ${summary}"`,
     { stdio: 'inherit' },
   )
   child_process.execSync(`git -C "${ROOT}" push -u origin ${branch}`, { stdio: 'inherit' })
-  // PR target comes from GITHUB_REPO or the origin remote — never hardcoded,
-  // so template copies open PRs against THEIR repo. No gh / no remote = the
-  // commit still lands locally and this step is skipped.
-  const repo = (process.env.GITHUB_REPO || '').trim() || originRepo()
-  if (!repo) { console.log('discover: no GITHUB_REPO/origin — skipping PR'); return }
-  try {
-    child_process.execSync(
-      `gh pr create --repo ${repo} --title "auto-discover: ${summary}" --body "Discovery cron run on $(date -u +%F). Review the additions and merge if good."`,
-      { stdio: 'inherit', cwd: ROOT },
-    )
-  } catch { console.log('discover: gh pr create failed (gh missing or unauthenticated) — commit pushed, no PR') }
-}
-
-// "git@github.com:user/repo.git" or "https://github.com/user/repo.git" → "user/repo"
-function originRepo(): string {
-  try {
-    const url = child_process.execSync(`git -C "${ROOT}" remote get-url origin`).toString().trim()
-    const m = url.match(/github\.com[:/]([^/]+\/[^/.]+)/)
-    return m ? m[1] : ''
-  } catch { return '' }
+  child_process.execSync(
+    `gh pr create --repo collectivewinca/ve-work --title "auto-discover: ${summary}" --body "Pi discovery cron run on $(date -u +%F). Review the additions and merge if good."`,
+    { stdio: 'inherit', cwd: ROOT },
+  )
 }
 
 async function main(): Promise<void> {

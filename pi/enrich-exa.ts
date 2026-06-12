@@ -303,7 +303,7 @@ async function alumniFor(company: string, school: string, label: string, kw: str
 //   both         → the target company appears in their EXPERIENCE
 // Verdicts are cached per (url, company) in .enrichment/people-verified.json,
 // so re-runs are free. Without a token this layer is skipped (Exa rules only).
-const APIFY = (process.env.APIFY_TOKEN || '').trim()
+import { runActorSync, apifyAvailable } from './apify'
 const VERIFY_CAP = 12 // max NEW profile scrapes per profile per run (cost guard)
 
 interface VerifyCache { [key: string]: { ok: boolean; at: string } }
@@ -312,26 +312,9 @@ function verifyCachePath(profile: string): string {
 }
 
 async function fetchLinkedInProfile(url: string): Promise<string | null> {
-  try {
-    const res = await fetch(
-      `https://api.apify.com/v2/acts/apimaestro~linkedin-profile-detail/run-sync-get-dataset-items?token=${APIFY}`,
-      {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ username: url, includeEmail: false }),
-        signal: AbortSignal.timeout(90000),
-      },
-    )
-    if (!res.ok) {
-      // Surface quota/billing problems instead of silently skipping — an Apify
-      // 403 "Monthly usage hard limit exceeded" also kills LinkedIn discovery.
-      console.log(`  verify: apify ${res.status} — ${(await res.text()).slice(0, 120)}`)
-      return null
-    }
-    const items = (await res.json()) as Record<string, unknown>[]
-    if (!Array.isArray(items) || !items[0]) return null
-    return JSON.stringify(items[0]).toLowerCase()
-  } catch { return null }
+  const items = await runActorSync('apimaestro~linkedin-profile-detail', { username: url, includeEmail: false })
+  if (!items || !items[0]) return null
+  return JSON.stringify(items[0]).toLowerCase()
 }
 
 function sectionBlob(profileJson: string, keys: string[]): string {
@@ -348,7 +331,7 @@ function sectionBlob(profileJson: string, keys: string[]): string {
 }
 
 async function verifyRecs(profile: string, company: string, recs: Rec[]): Promise<Rec[]> {
-  if (!APIFY) return recs
+  if (!apifyAvailable()) return recs
   let cache: VerifyCache = {}
   try { cache = JSON.parse(fs.readFileSync(verifyCachePath(profile), 'utf-8')) } catch { /* first run */ }
   let scrapes = 0
