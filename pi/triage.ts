@@ -11,8 +11,8 @@
 
 import * as fs from 'fs'
 import * as path from 'path'
+import * as http from 'http'
 import * as yaml from 'js-yaml'
-import { callClaude } from './llm'
 
 const ROOT = path.resolve(__dirname, '..')
 const QUEUE_PATH = path.join(ROOT, 'jobs', 'queue.md')
@@ -21,6 +21,8 @@ interface SearchConfig {
   keywords: string[]
   locations: string[]
   exclude_keywords?: string[]
+  job_types?: string[]
+  remote_only?: boolean
   triage?: {
     hard_no_keywords?: string[]
     notes?: string
@@ -87,7 +89,45 @@ function readQueue(): { lines: string[]; entries: QueueEntry[] } {
 }
 
 function callGateway(prompt: string): Promise<string> {
-  return callClaude(prompt, { maxTokens: 150, timeoutMs: 30000 })
+  return new Promise((resolve, reject) => {
+    const body = JSON.stringify({
+      model: 'claude-haiku-4-5',
+      max_tokens: 150,
+      messages: [{ role: 'user', content: prompt }],
+    })
+    const req = http.request(
+      'http://169.254.169.254/gateway/llm/anthropic/v1/messages',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'anthropic-version': '2023-06-01',
+          'Content-Length': Buffer.byteLength(body),
+        },
+        timeout: 30000,
+      },
+      (res) => {
+        const chunks: Buffer[] = []
+        res.on('data', (c: Buffer) => chunks.push(c))
+        res.on('end', () => {
+          const text = Buffer.concat(chunks).toString('utf-8')
+          if (res.statusCode && res.statusCode >= 400) {
+            return reject(new Error(`gateway ${res.statusCode}: ${text.slice(0, 200)}`))
+          }
+          try {
+            const d = JSON.parse(text)
+            resolve(String(d.content?.[0]?.text || ''))
+          } catch (e) {
+            reject(new Error(`gateway parse: ${(e as Error).message}`))
+          }
+        })
+      },
+    )
+    req.on('error', reject)
+    req.on('timeout', () => { req.destroy(); reject(new Error('gateway timeout')) })
+    req.write(body)
+    req.end()
+  })
 }
 
 function buildPrompt(entry: QueueEntry, config: SearchConfig, prefs: Prefs): string {
@@ -103,8 +143,21 @@ function buildPrompt(entry: QueueEntry, config: SearchConfig, prefs: Prefs): str
   const visaRule = prefs.sponsorship_needed
     ? `\n- Candidate needs visa sponsorship: titles or notes saying "no sponsorship", "US citizens only", "must have work authorization without sponsorship" → SKIP.`
     : ''
+  // Employment-type preference: when the candidate wants contract/fractional/
+  // part-time work, full-time-permanent-only postings are noise. We KEEP
+  // ambiguous ones (most listings don't state W2-vs-contract) and only skip
+  // those that explicitly rule out contractors.
+  const wantsContract = (config.job_types || []).some((j) => /contract|part|temp|fractional/i.test(j))
+  const employmentRule = wantsContract
+    ? `\n- Candidate wants CONTRACT / FRACTIONAL / PART-TIME / ADVISORY work. You see ONLY the title — a senior title (Head of Product, Director, VP, Senior Director) is NOT evidence of full-time and you must NOT infer it. The discovery sources already filtered for contract eligibility. SKIP ONLY if the TITLE ITSELF contains an explicit full-time/permanent marker ("full-time", "permanent", "FTE", "employee") OR is inherently a permanent equity role ("Co-Founder", "Partner"). Otherwise KEEP.`
+    : ''
+  const remoteRule = config.remote_only
+    ? `\n- Candidate is REMOTE-ONLY. SKIP listings that require on-site or specific-city presence with no remote option.`
+    : ''
   const contextNotes = [
     config.triage?.notes,
+    wantsContract ? 'open to fractional/contract/advisory/interim' : '',
+    config.remote_only ? 'remote only' : '',
     prefs.stage && prefs.stage !== 'any' ? `prefers ${prefs.stage} companies` : '',
     prefs.availability ? `availability: ${prefs.availability}` : '',
   ].filter(Boolean).join('; ')
@@ -125,7 +178,7 @@ Listing:
 Hard SKIP rules:
 - Title contains any Hard NO term (case-insensitive substring)
 - Title clearly indicates wrong seniority for the candidate's stated keywords (e.g. "Junior" when filters say "Director" or "Executive")
-- URL host indicates a country obviously outside the candidate's wanted locations AND remote is NOT in their list. LinkedIn regional hosts: my.=Malaysia, li.=Liechtenstein, ca.=Canada, uk.=UK, in.=India, de.=Germany, fr.=France, etc.${compRule}${visaRule}
+- URL host indicates a country obviously outside the candidate's wanted locations AND remote is NOT in their list. LinkedIn regional hosts: my.=Malaysia, li.=Liechtenstein, ca.=Canada, uk.=UK, in.=India, de.=Germany, fr.=France, etc.${compRule}${visaRule}${employmentRule}${remoteRule}
 
 Anything else: KEEP. When uncertain, KEEP.
 

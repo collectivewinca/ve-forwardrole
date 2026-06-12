@@ -29,6 +29,8 @@ interface SearchConfig {
   exclude_companies?: string[]
   exclude_keywords?: string[]
   max_results?: number
+  job_types?: string[]   // contract | part-time | temporary | full-time | ... → LinkedIn f_JT
+  remote_only?: boolean  // restrict LinkedIn search to remote postings (f_WT=2)
 }
 
 interface JobResult {
@@ -189,9 +191,20 @@ const EXPERIENCE_CODES: Record<string, string> = {
   executive: '6',
 }
 
+// LinkedIn job-type codes (f_JT) and workplace-type (f_WT).
+const JOB_TYPE_CODES: Record<string, string> = {
+  'full-time': 'F', fulltime: 'F', 'part-time': 'P', parttime: 'P',
+  contract: 'C', contractual: 'C', temporary: 'T', temp: 'T',
+  internship: 'I', volunteer: 'V', other: 'O',
+}
+
 function buildLinkedInUrls(config: SearchConfig): string[] {
   const codes = (config.experience_levels || [])
     .map((l) => EXPERIENCE_CODES[l.toLowerCase()] || '')
+    .filter(Boolean)
+    .join(',')
+  const jobTypes = (config.job_types || [])
+    .map((j) => JOB_TYPE_CODES[j.toLowerCase().trim()] || '')
     .filter(Boolean)
     .join(',')
   const tpr = `r${(config.posted_within_days || 7) * 86400}`
@@ -200,6 +213,8 @@ function buildLinkedInUrls(config: SearchConfig): string[] {
     for (const location of config.locations) {
       const p = new URLSearchParams({ keywords: keyword, location, f_TPR: tpr })
       if (codes) p.set('f_E', codes)
+      if (jobTypes) p.set('f_JT', jobTypes)          // Contract/Part-time/Temporary/...
+      if (config.remote_only) p.set('f_WT', '2')     // 2 = Remote
       urls.push(`https://www.linkedin.com/jobs/search/?${p.toString()}`)
     }
   }

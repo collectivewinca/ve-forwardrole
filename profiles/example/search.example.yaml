@@ -40,3 +40,7 @@ max_results: 30
 # afterwards the cron keeps it fresh.
 # publish:
 #   slug: "your-slug-here"
+
+# Optional: bias discovery toward non-full-time work.
+# job_types: [contract, part-time, temporary]   # LinkedIn f_JT filter
+# remote_only: true                              # remote postings only
