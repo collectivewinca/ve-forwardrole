@@ -330,6 +330,47 @@ function sectionBlob(profileJson: string, keys: string[]): string {
   } catch { return profileJson }
 }
 
+// A company's DISTINCTIVE tokens (drop corp suffixes), ALL of which must appear
+// for a match — so "Turner & Townsend" needs both "turner" AND "townsend",
+// rejecting "Turner Construction Company".
+const CORP = new Set(['inc', 'llc', 'ltd', 'corp', 'co', 'company', 'group', 'technologies', 'technology', 'holdings', 'partners', 'llp', 'plc', 'and'])
+function companyTokens(name: string): string[] {
+  return (name || '').toLowerCase().replace(/&/g, ' and ').split(/\s+/)
+    .map((w) => w.replace(/[^\w]/g, ''))
+    .filter((w) => w.length > 2 && !CORP.has(w))
+}
+function blobHasAllCompanyTokens(blob: string, name: string): boolean {
+  const toks = companyTokens(name)
+  return toks.length === 0 ? true : toks.every((t) => blob.includes(t))
+}
+
+// The candidate's CURRENT employer only — headline + experience entries that are
+// current (no end date / marked current), falling back to the most-recent entry.
+// Prevents an OLD position at the target company from passing someone who has
+// since moved elsewhere.
+function currentCompanyBlob(profileJson: string): string {
+  try {
+    const d = JSON.parse(profileJson) as Record<string, unknown>
+    const parts: string[] = []
+    const bi = (d.basic_info || {}) as Record<string, unknown>
+    const headline = bi.headline || d.headline
+    if (headline) parts.push(String(headline).toLowerCase())
+    for (const [k, v] of Object.entries(d)) {
+      if (/experience|position/i.test(k) && Array.isArray(v)) {
+        const arr = v as Record<string, unknown>[]
+        const current = arr.filter((e) => {
+          const end = e.end_date ?? e.endDate ?? e.ends_at ?? e.end
+          const cur = e.is_current ?? e.current
+          return cur === true || end == null || end === '' || /present|current/i.test(JSON.stringify(end))
+        })
+        const take = current.length ? current : arr.slice(0, 1)
+        parts.push(JSON.stringify(take).toLowerCase())
+      }
+    }
+    return parts.join(' ') || profileJson
+  } catch { return profileJson }
+}
+
 async function verifyRecs(profile: string, company: string, recs: Rec[]): Promise<Rec[]> {
   if (!apifyAvailable()) return recs
   let cache: VerifyCache = {}
@@ -344,10 +385,12 @@ async function verifyRecs(profile: string, company: string, recs: Rec[]): Promis
       scrapes++
       const pj = await fetchLinkedInProfile(r.url)
       if (pj === null) { out.push(r); continue } // scrape failed — keep Exa verdict, unverified
-      const coKey = company.toLowerCase().split(/\s+/)[0].replace(/[^\w]/g, '')
-      const atCompany = coKey.length > 2 ? sectionBlob(pj, ['experience', 'position']).includes(coKey) : true
+      // CURRENT employer must match ALL distinctive company tokens (was a loose
+      // first-word substring over the whole history — passed "Turner
+      // Construction" for "Turner & Townsend", and people who'd since left).
+      const atCompany = blobHasAllCompanyTokens(currentCompanyBlob(pj), company)
       const tieOk = r.path === 'ex-colleague'
-        ? sectionBlob(pj, ['experience', 'position']).includes((r.via || '').toLowerCase().split(/\s+/)[0].replace(/[^\w]/g, ''))
+        ? blobHasAllCompanyTokens(sectionBlob(pj, ['experience', 'position']), r.via || '')
         : sectionBlob(pj, ['education']).includes(distinctiveToken(r.via || ''))
       verdict = { ok: atCompany && tieOk, at: new Date().toISOString().slice(0, 10) }
       cache[key] = verdict
