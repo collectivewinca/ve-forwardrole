@@ -30,7 +30,7 @@ export default async function ProfilePage({
           ve-work · {user.name}
         </p>
         <a
-          href="/api/auth/logout"
+          href="/work/api/auth/logout"
           className="text-xs text-zinc-500 hover:text-orange-900"
         >
           Sign out

@@ -35,6 +35,7 @@ interface Rec {
   name: string; url: string; title?: string; cornell?: string
   confirmed: boolean; relevance: Relevance; reason?: string; intro_angle?: string
   path?: PathKind; via?: string // which school/company makes this a warm path
+  verified?: boolean // true = education/experience checked on the REAL LinkedIn profile (Apify)
 }
 interface Graph { schools: { name: string }[]; employers: { name: string; current: boolean }[] }
 
@@ -72,6 +73,9 @@ function keptCompanies(profile: string): string[] {
     if (!m || m[1] !== profile) continue
     const co = m[2].trim()
     if (RECRUITER.test(co)) continue
+    // Garbage "company" names from Exa-sourced queue comments ("Pinecone - Jobs
+    // @ jobs.ashbyhq.com") produce garbage people searches — skip them.
+    if (/@|https?:|\bjobs?\b|\.(com|io|ai|co|org)\b|\(| [-—] /i.test(co) || co.length > 35) continue
     const key = co.toLowerCase()
     if (!seen.has(key)) { seen.add(key); out.push(co) }
   }
@@ -102,14 +106,25 @@ function titleRelevance(title: string): Relevance {
   if (/\b(senior|sr\.?|lead|staff|manager|superintendent)\b/.test(t)) return 'medium'
   return 'low'
 }
+// The school's most DISTINCTIVE token — never a generic word. "University of
+// Pune" must key on "pune", not "university" (which matches every profile and
+// produced confirmed-but-wrong alumni).
+const GENERIC = new Set(['university', 'institute', 'college', 'school', 'of', 'the', 'management', 'technology', 'state'])
+function distinctiveToken(name: string): string {
+  const words = (name || '').toLowerCase().split(',')[0].split(/\s+/).filter((w) => w.length > 2 && !GENERIC.has(w))
+  return words[0] || ''
+}
+
 function schoolConfirmed(summary: string, school: string): boolean {
   const s = summary.toLowerCase()
-  const key = (school || '').toLowerCase().split(/\s+/)[0] // "cornell", "stanford", ...
+  const key = distinctiveToken(school)
   if (!key || !s.includes(key)) return false
-  if (/\bnot (shown|visible|indicated|listed)\b/.test(s.slice(s.indexOf(key)))) return false
+  // Exa often ECHOES the school we asked about ("Welingkar: not shown") — any
+  // not-shown/not-listed phrasing anywhere in the summary kills the confirm.
+  if (/\bnot (shown|visible|indicated|listed|mentioned|found)\b|\bno (school|education)\b|unconfirmed/.test(s)) return false
   const i = s.indexOf(key)
   const near = s.slice(Math.max(0, i - 40), i + 90)
-  const degree = /\b(mba|m\.?eng|m\.?s|mme|ph\.?d|b\.?s|b\.?a|b\.?eng|bachelor|master|degree|attended)\b/.test(near)
+  const degree = /\b(mba|m\.?eng|m\.?s|mme|ph\.?d|b\.?s|b\.?a|b\.?eng|bachelor|master|degree|attended|diploma)\b/.test(near)
   const years = /\b(19|20)\d{2}\b/.test(near)
   return degree || years
 }
@@ -219,9 +234,9 @@ async function exColleaguesFor(company: string, pastCo: string, kw: string): Pro
     // target company or the person is useless as a warm path there.
     const atOther = title.match(/\bat\s+([A-Za-z0-9&.\- ]{2,40})/i)
     if (atOther && !new RegExp(company.split(/\s+/)[0].replace(/[^\w]/g, ''), 'i').test(atOther[1])) continue
-    const confirmed = new RegExp(pastCo.split(/\s+/)[0], 'i').test(past) && !/not shown/i.test(past)
+    const confirmed = new RegExp(pastCo.split(/\s+/)[0].replace(/[^\w]/g, ''), 'i').test(past) && !/not (shown|mentioned|listed)/i.test(past)
+    if (!confirmed) continue // unverifiable overlap = noise, not a warm path
     const relevance = titleRelevance(title)
-    if (!confirmed && relevance === 'low') continue
     recs.push({
       name: (res.title || '').split(' - ')[0].split(' | ')[0].trim(),
       url: res.url,
@@ -251,9 +266,14 @@ async function alumniFor(company: string, school: string, label: string, kw: str
   for (const res of results) {
     const summary = (res.summary || '').replace(/\s+/g, ' ').trim()
     const title = field(summary, /title[:\s]+([^|]+?)(?:\s*\||$)/i) || ''
+    // Must actually be AT the target company: if the title names a different
+    // current employer ("Proprietor at Hotel Majestic" under Pagaya), drop it.
+    const atOther = (title + ' ' + summary.slice(0, 120)).match(/\bat\s+([A-Za-z0-9&.\- ]{2,40})/i)
+    const coKey = company.toLowerCase().split(/\s+/)[0].replace(/[^\w]/g, '')
+    if (atOther && coKey && !atOther[1].toLowerCase().replace(/[^\w ]/g, '').includes(coKey)) continue
     const confirmed = schoolConfirmed(summary, school)
+    if (!confirmed) continue // unconfirmed ties are noise, not leads
     const relevance = titleRelevance(title)
-    if (!confirmed && relevance === 'low') continue // skip noise: unconfirmed AND junior
     const single = label.replace(/s$/, '')
     recs.push({
       name: (res.title || '').split(' - ')[0].split(' | ')[0].trim(),
@@ -272,6 +292,90 @@ async function alumniFor(company: string, school: string, label: string, kw: str
   }
   const score = (x: Rec) => (x.confirmed ? 3 : 0) + ({ high: 2, medium: 1, low: 0 }[x.relevance])
   return recs.sort((a, b) => score(b) - score(a)).slice(0, 3)
+}
+
+// ── LinkedIn ground-truth verification (Apify, optional) ────────────────────
+// Exa summaries are hearsay; the profile page is the record. When APIFY_TOKEN
+// is set, each top rec's REAL LinkedIn profile is scraped (apimaestro/
+// linkedin-profile-detail, ~$0.005/profile, no cookies) and we require:
+//   alumni       → the school's distinctive token appears in their EDUCATION
+//   ex-colleague → the past company appears in their EXPERIENCE
+//   both         → the target company appears in their EXPERIENCE
+// Verdicts are cached per (url, company) in .enrichment/people-verified.json,
+// so re-runs are free. Without a token this layer is skipped (Exa rules only).
+const APIFY = (process.env.APIFY_TOKEN || '').trim()
+const VERIFY_CAP = 12 // max NEW profile scrapes per profile per run (cost guard)
+
+interface VerifyCache { [key: string]: { ok: boolean; at: string } }
+function verifyCachePath(profile: string): string {
+  return path.join(ROOT, 'profiles', profile, '.enrichment', 'people-verified.json')
+}
+
+async function fetchLinkedInProfile(url: string): Promise<string | null> {
+  try {
+    const res = await fetch(
+      `https://api.apify.com/v2/acts/apimaestro~linkedin-profile-detail/run-sync-get-dataset-items?token=${APIFY}`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ username: url, includeEmail: false }),
+        signal: AbortSignal.timeout(90000),
+      },
+    )
+    if (!res.ok) {
+      // Surface quota/billing problems instead of silently skipping — an Apify
+      // 403 "Monthly usage hard limit exceeded" also kills LinkedIn discovery.
+      console.log(`  verify: apify ${res.status} — ${(await res.text()).slice(0, 120)}`)
+      return null
+    }
+    const items = (await res.json()) as Record<string, unknown>[]
+    if (!Array.isArray(items) || !items[0]) return null
+    return JSON.stringify(items[0]).toLowerCase()
+  } catch { return null }
+}
+
+function sectionBlob(profileJson: string, keys: string[]): string {
+  // Pull the named array sections out of the raw profile JSON (schema-tolerant:
+  // actors rename fields; we match any key that CONTAINS the section name).
+  try {
+    const d = JSON.parse(profileJson) as Record<string, unknown>
+    const blobs: string[] = []
+    for (const [k, v] of Object.entries(d)) {
+      if (keys.some((key) => k.toLowerCase().includes(key))) blobs.push(JSON.stringify(v).toLowerCase())
+    }
+    return blobs.join(' ') || profileJson // fall back to whole profile if sections not found
+  } catch { return profileJson }
+}
+
+async function verifyRecs(profile: string, company: string, recs: Rec[]): Promise<Rec[]> {
+  if (!APIFY) return recs
+  let cache: VerifyCache = {}
+  try { cache = JSON.parse(fs.readFileSync(verifyCachePath(profile), 'utf-8')) } catch { /* first run */ }
+  let scrapes = 0
+  const out: Rec[] = []
+  for (const r of recs) {
+    if (!/linkedin\.com\/in\//i.test(r.url)) { out.push(r); continue } // can't verify non-profile URLs
+    const key = `${r.url.toLowerCase()}|${company.toLowerCase()}`
+    let verdict = cache[key]
+    if (!verdict && scrapes < VERIFY_CAP) {
+      scrapes++
+      const pj = await fetchLinkedInProfile(r.url)
+      if (pj === null) { out.push(r); continue } // scrape failed — keep Exa verdict, unverified
+      const coKey = company.toLowerCase().split(/\s+/)[0].replace(/[^\w]/g, '')
+      const atCompany = coKey.length > 2 ? sectionBlob(pj, ['experience', 'position']).includes(coKey) : true
+      const tieOk = r.path === 'ex-colleague'
+        ? sectionBlob(pj, ['experience', 'position']).includes((r.via || '').toLowerCase().split(/\s+/)[0].replace(/[^\w]/g, ''))
+        : sectionBlob(pj, ['education']).includes(distinctiveToken(r.via || ''))
+      verdict = { ok: atCompany && tieOk, at: new Date().toISOString().slice(0, 10) }
+      cache[key] = verdict
+    }
+    if (!verdict) { out.push(r); continue } // cap reached — keep, unverified
+    if (verdict.ok) out.push({ ...r, verified: true })
+    // verdict.ok === false → silently dropped: the profile itself contradicts the tie
+  }
+  fs.mkdirSync(path.dirname(verifyCachePath(profile)), { recursive: true })
+  fs.writeFileSync(verifyCachePath(profile), JSON.stringify(cache, null, 2))
+  return out
 }
 
 async function enrichProfile(profile: string): Promise<void> {
@@ -319,7 +423,8 @@ async function enrichProfile(profile: string): Promise<void> {
         } catch (e) { console.log(`  ${profile}/${co}: ex-colleague(${pastCo}) skipped (${(e as Error).message})`) }
       }
       const ranked = rankWarmPaths(dedupeByUrl(recs)).slice(0, 5)
-      if (ranked.length) byCompany[co] = ranked
+      const checked = await verifyRecs(profile, co, ranked)
+      if (checked.length) byCompany[co] = checked
     }
     const enrDir = path.join(dir, '.enrichment')
     fs.mkdirSync(enrDir, { recursive: true })

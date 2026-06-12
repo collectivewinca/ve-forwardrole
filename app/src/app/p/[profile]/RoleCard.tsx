@@ -111,16 +111,6 @@ export function RoleCard({
               No longer accepting
             </span>
           )}
-          {school && (
-            <a
-              href={alumniSearchUrl(company, school)}
-              target="_blank"
-              rel="noopener"
-              className="rounded-full border border-red-700 px-2.5 py-0.5 text-[11px] font-semibold text-red-700 hover:bg-red-700 hover:text-white"
-            >
-              Find {schoolLabel} ↗
-            </a>
-          )}
         </div>
         {fit && (fit.matched.length > 0 || fit.gaps.length > 0) && (
           <details className="mt-2">

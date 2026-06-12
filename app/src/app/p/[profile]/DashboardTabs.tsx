@@ -92,13 +92,26 @@ function ShortlistPanel(props: Props) {
     if (d?.status === "starred") return 1000 + (props.fitByUrl[e.url]?.score ?? 0);
     return props.fitByUrl[e.url]?.score ?? -1;
   };
-  const visible = props.active
-    .filter((e) => props.decisions[e.url]?.status !== "skipped")
+  const notSkipped = props.active.filter((e) => props.decisions[e.url]?.status !== "skipped");
+  // Scored-and-weak roles are hidden: a fit of 3 or less wastes attention.
+  // Unscored roles (no JD fetched yet) stay visible.
+  const LOW_FIT = 3;
+  const lowFit = notSkipped.filter((e) => {
+    const f = props.fitByUrl[e.url];
+    return f !== undefined && f.score <= LOW_FIT && props.decisions[e.url]?.status !== "starred";
+  });
+  const visible = notSkipped
+    .filter((e) => !lowFit.includes(e))
     .sort((a, b) => rank(b) - rank(a));
   return (
     <>
       <h2 className="mb-3 text-xs font-bold uppercase tracking-widest text-zinc-500">
         {visible.length} active role{visible.length === 1 ? "" : "s"} — starred first, then best fit
+        {lowFit.length > 0 && (
+          <span className="ml-2 font-normal normal-case tracking-normal text-zinc-400">
+            ({lowFit.length} low-fit hidden)
+          </span>
+        )}
       </h2>
       <div className="grid gap-2">
         {visible.map((e, i) => (
@@ -178,16 +191,6 @@ function ExternalPanel(props: Props) {
                   {e.source}
                 </span>
                 {e.location && <span className="text-[11px] text-zinc-500">{e.location}</span>}
-                {props.school && (
-                  <a
-                    href={alumniSearchUrl(e.company, props.school)}
-                    target="_blank"
-                    rel="noopener"
-                    className="rounded-full border border-red-700 px-2.5 py-0.5 text-[11px] font-semibold text-red-700 hover:bg-red-700 hover:text-white"
-                  >
-                    Find {props.schoolLabel} at {e.company} ↗
-                  </a>
-                )}
                 {props.fitByUrl[e.url] && (
                   <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider ${fitCls(props.fitByUrl[e.url].score)}`}>
                     Fit {props.fitByUrl[e.url].score}/10
@@ -434,19 +437,21 @@ function AlumniPanel(props: Props) {
         return (
           <section key={co}>
             <h3 className="font-serif text-lg font-semibold">{co}</h3>
-            <div className="mt-1 mb-2 flex flex-wrap gap-x-3 gap-y-1">
-              {props.networks.map((n) => (
+            {(() => {
+              // One contextual link: the selected network, or the primary one.
+              const n = selected || props.networks[0];
+              if (!n) return null;
+              return (
                 <a
-                  key={`${co}:${n.kind}:${n.name}`}
                   href={alumniSearchUrl(co, n.kind === "employer" ? `"${n.name}"` : n.name)}
                   target="_blank"
                   rel="noopener"
-                  className="text-[11px] font-semibold text-red-700 hover:underline"
+                  className="mb-2 inline-block text-[11px] font-semibold text-red-700 hover:underline"
                 >
-                  Find {n.label} at {co} ↗
+                  Search {n.label} at {co} on LinkedIn ↗
                 </a>
-              ))}
-            </div>
+              );
+            })()}
             <div className="grid gap-2">
               {people.map((p) => (
                 <PersonRow key={p.url} p={p} schoolLabel={props.schoolLabel} profile={props.profile} company={co} />
@@ -507,6 +512,11 @@ function PersonRow({ p, schoolLabel, profile, company }: { p: AlumniPerson; scho
         >
           {p.name} ↗
         </a>
+        {p.verified && (
+          <span className="rounded-full bg-blue-800 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-white" title="Education/experience checked on their LinkedIn profile">
+            ✓ LinkedIn-verified
+          </span>
+        )}
         {p.confirmed ? (
           <span className="rounded-full bg-emerald-700 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-white">
             ✓ {tieLabel}

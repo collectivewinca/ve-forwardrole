@@ -93,6 +93,7 @@ export interface AlumniPerson {
   introAngle?: string;
   path?: "alumni" | "ex-colleague"; // which kind of warm tie
   via?: string; // the school or past company behind the tie
+  verified?: boolean; // tie checked against their real LinkedIn profile (Apify)
 }
 
 // A user decision on a queued role, made from the dashboard. Stored in
@@ -290,6 +291,7 @@ function readAlumni(profile: string): Record<string, AlumniPerson[]> {
           introAngle: person.intro_angle ? String(person.intro_angle) : undefined,
           path: (person.path === "ex-colleague" ? "ex-colleague" : person.path === "alumni" ? "alumni" : undefined) as AlumniPerson["path"],
           via: person.via ? String(person.via) : undefined,
+          verified: Boolean(person.verified),
         }))
         .sort((a, b) => score(b) - score(a));
     }

@@ -164,8 +164,7 @@ function linkedinAlumniSearchUrl(company: string, school: string): string {
 }
 
 function renderRow(idx: number, e: QueueEntry, _hits: AlumniHit[], alumLabel: string, tailoredScore: number | null, school: string, fitScore: number | null, warmCount: number): string {
-  const linkedinUrl = linkedinAlumniSearchUrl(e.company, school)
-  const alumBlock = `<div class="cornell-row"><a class="cornell-deep-link" href="${escapeHtml(linkedinUrl)}" target="_blank" rel="noopener">Find ${escapeHtml(alumLabel)} at ${escapeHtml(e.company)} on LinkedIn →</a></div>`
+  const alumBlock = '' // warm-path links live in the networks section, not on every card
   const badges: string[] = []
   if (tailoredScore !== null) badges.push(`<span class="badge tailored-badge">Match ${tailoredScore}/10 · tailored</span>`)
   if (fitScore !== null) badges.push(`<span class="badge fit-badge">Fit ${fitScore}/10</span>`)
@@ -186,8 +185,7 @@ function renderRow(idx: number, e: QueueEntry, _hits: AlumniHit[], alumLabel: st
 }
 
 function renderClosedCard(e: QueueEntry, _hits: AlumniHit[], alumLabel: string, school: string): string {
-  const linkedinUrl = linkedinAlumniSearchUrl(e.company, school)
-  const alumBlock = `<div class="cornell-row"><a class="cornell-deep-link" href="${escapeHtml(linkedinUrl)}" target="_blank" rel="noopener">Find ${escapeHtml(alumLabel)} at ${escapeHtml(e.company)} on LinkedIn →</a></div>`
+  const alumBlock = ''
   return `
     <div class="closed-card">
       <h3 class="closed-title">${escapeHtml(e.title)}</h3>
@@ -215,8 +213,8 @@ ${cards}
 function renderAlumniSection(alumni: Record<string, AlumniRec[]>, alumLabel: string, networks: Network[]): string {
   const companies = Object.keys(alumni)
   if (!companies.length) return ''
-  const netLinks = (co: string) => networks.map((n) =>
-    `<a class="cornell-deep-link" href="${escapeHtml(linkedinAlumniSearchUrl(co, n.query))}" target="_blank" rel="noopener">Find ${escapeHtml(n.label)} ↗</a>`,
+  const netLinks = (co: string) => networks.slice(0, 1).map((n) =>
+    `<a class="cornell-deep-link" href="${escapeHtml(linkedinAlumniSearchUrl(co, n.query))}" target="_blank" rel="noopener">Search ${escapeHtml(n.label)} at ${escapeHtml(co)} on LinkedIn ↗</a>`,
   ).join(' ')
   const singular = alumLabel.replace(/s$/, '')
   const tie = (p: AlumniRec) => {
@@ -291,7 +289,9 @@ function renderPage(profile: string, entries: QueueEntry[], state: EnrichmentSta
   // Best-fit-first: scored roles ranked by fit, unscored ones (LinkedIn URLs we
   // can't deep-read) keep their queue order below them.
   const fitOf = (e: QueueEntry) => fit[e.url]?.score ?? -1
-  const active = [...listed].sort((a, b) => fitOf(b) - fitOf(a))
+  // Scored-and-weak roles (fit <= 3) are dropped from the page entirely.
+  const active = listed.filter((e) => fit[e.url] === undefined || fit[e.url].score > 3)
+    .sort((a, b) => fitOf(b) - fitOf(a))
 
   const tailoredByCompany = new Map<string, number>()
   apps.forEach((a) => tailoredByCompany.set(a.company, a.score))
