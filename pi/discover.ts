@@ -16,6 +16,7 @@ import * as yaml from 'js-yaml'
 import { atsDiscover, AtsJob } from './sources/ats'
 import { runActorSync, apifyAvailable } from './apify'
 import { exaDiscover } from './sources/exa'
+import { feedsDiscover } from './sources/feeds'
 
 const ROOT = path.resolve(__dirname, '..')
 const QUEUE_PATH = path.join(ROOT, 'jobs', 'queue.md')
@@ -352,6 +353,19 @@ async function main(): Promise<void> {
         jobs.push(...exaJobs.map((j) => ({ url: j.url, title: j.title, company: j.company, location: j.location, posted: j.posted })))
       } catch (e) {
         console.error(`  ${profile}: exa failed — ${(e as Error).message}`)
+      }
+    }
+    // Source 4 — remote job-board feeds (Remotive + RemoteOK). Gated: only for
+    // profiles that actually want remote work, so on-site seekers don't get
+    // remote roles dumped in their queue. Where fractional/contract roles live.
+    const wantsRemote = !!config.remote_only || config.locations.some((l) => /remote/i.test(l))
+    if (!opts.dryRun && wantsRemote) {
+      try {
+        const feedJobs = await feedsDiscover(wide, config.job_types || [], 20)
+        console.log(`  ${profile}: feeds — ${feedJobs.length} remote role(s)`)
+        jobs.push(...feedJobs.map((j) => ({ url: j.url, title: j.title, company: j.company, location: j.location, posted: j.posted })))
+      } catch (e) {
+        console.error(`  ${profile}: feeds failed — ${(e as Error).message}`)
       }
     }
     const { kept, dropped } = applyExcludeFilters(jobs, config)
