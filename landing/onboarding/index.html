@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ve-work — onboarding checklist</title>
+<meta name="description" content="What to have ready before starting ve-work. ~15 minutes of prep, ~24 hours to first shortlist." />
+<style>
+  :root {
+    --ink: #1a1a1a;
+    --muted: #6b6b6b;
+    --rule: #e6e6e6;
+    --accent: #8a3a1a;
+    --bg: #fdfaf5;
+    --paper: #ffffff;
+    --highlight: #f5edd9;
+    --warn-bg: #faf2e6;
+  }
+  html, body { background: var(--bg); color: var(--ink); margin: 0; }
+  body { font-family: 'Charter','Iowan Old Style','Georgia',serif; font-size: 17px; line-height: 1.65; -webkit-font-smoothing: antialiased; }
+  main { max-width: 720px; margin: 0 auto; padding: 0 24px; }
+  a { color: var(--accent); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 2px; }
+  a:hover { color: #5c2710; }
+  code { font-family: ui-monospace, 'SF Mono', 'Menlo', monospace; font-size: 0.88em; background: var(--highlight); padding: 1px 6px; border-radius: 3px; color: var(--ink); }
+
+  .crumb { font-family: 'Inter',system-ui,sans-serif; font-size: 12px; letter-spacing: 0.08em; color: var(--muted); padding: 32px 0 0; }
+  .crumb a { color: var(--muted); text-decoration: none; border-bottom: 1px solid var(--rule); }
+  .crumb a:hover { border-color: var(--accent); color: var(--accent); }
+
+  .hero { padding: 48px 0 56px; }
+  .kicker { font-family: 'Inter',system-ui,sans-serif; font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--accent); font-weight: 700; margin: 0 0 14px; }
+  .hero h1 { font-family: 'Charter',serif; font-size: 44px; line-height: 1.08; margin: 0 0 18px; font-weight: 500; letter-spacing: -0.018em; }
+  .hero .lede { font-size: 19px; line-height: 1.5; color: var(--muted); margin: 0 0 12px; max-width: 600px; }
+  .hero .meta { font-family: 'Inter',system-ui,sans-serif; font-size: 13px; color: var(--muted); margin-top: 28px; }
+  .hero .meta span { display: inline-block; margin-right: 24px; }
+  .hero .meta span + span { padding-left: 24px; border-left: 1px solid var(--rule); }
+
+  section { padding: 56px 0; border-top: 1px solid var(--rule); }
+  h2 { font-family: 'Charter',serif; font-size: 26px; font-weight: 600; margin: 0 0 28px; letter-spacing: -0.005em; }
+  h2 .step { color: var(--accent); font-family: 'Inter',system-ui,sans-serif; font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; display: block; margin-bottom: 8px; font-weight: 700; }
+
+  .check-list { list-style: none; padding: 0; margin: 0; }
+  .check-item { border-top: 1px solid var(--rule); padding: 24px 0; display: grid; grid-template-columns: 36px 1fr; gap: 18px; }
+  .check-item:first-child { border-top: none; padding-top: 0; }
+  .check-item .box { font-family: 'Inter',system-ui,sans-serif; font-weight: 700; font-size: 14px; color: var(--accent); padding-top: 3px; letter-spacing: 0.04em; }
+  .check-item h3 { font-family: 'Charter',serif; font-size: 19px; margin: 0 0 8px; font-weight: 600; letter-spacing: -0.005em; }
+  .check-item .desc { color: var(--muted); margin: 0; font-size: 16px; line-height: 1.55; }
+  .check-item .desc + .desc { margin-top: 8px; }
+  .check-item .desc strong { color: var(--ink); font-weight: 500; }
+  .check-item .examples { font-family: ui-monospace, 'SF Mono', monospace; font-size: 13px; color: var(--ink); background: var(--highlight); padding: 8px 12px; border-radius: 4px; display: inline-block; margin-top: 10px; line-height: 1.5; }
+  .check-item .note { font-size: 14px; font-style: italic; color: var(--muted); margin-top: 10px; }
+  .check-item .tag { font-family: 'Inter',system-ui,sans-serif; font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-left: 8px; padding: 2px 6px; border: 1px solid var(--rule); border-radius: 3px; vertical-align: 2px; }
+
+  .concepts { margin: 0; padding: 0; list-style: none; }
+  .concept { padding: 22px 0; border-top: 1px solid var(--rule); }
+  .concept:first-child { border-top: none; padding-top: 0; }
+  .concept h4 { font-family: 'Charter',serif; font-size: 18px; margin: 0 0 8px; font-weight: 600; letter-spacing: -0.005em; }
+  .concept p { margin: 0; color: var(--muted); font-size: 16px; line-height: 1.55; }
+  .concept p strong { color: var(--ink); font-weight: 500; }
+
+  .timeline { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+  .tl-cell { background: var(--paper); border: 1px solid var(--rule); border-radius: 8px; padding: 24px; }
+  .tl-cell .day { font-family: 'Inter',system-ui,sans-serif; font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent); margin: 0 0 12px; }
+  .tl-cell .what { font-family: 'Charter',serif; font-size: 15px; line-height: 1.5; margin: 0; color: var(--ink); }
+
+  .wont-list { background: var(--warn-bg); border: 1px solid #e5d6b8; border-radius: 8px; padding: 24px 28px; }
+  .wont-list ul { margin: 0; padding-left: 22px; }
+  .wont-list li { margin-bottom: 12px; font-size: 16px; line-height: 1.5; }
+  .wont-list li:last-child { margin-bottom: 0; }
+  .wont-list strong { color: var(--ink); font-weight: 600; }
+
+  .cta-card { background: var(--highlight); border-radius: 12px; padding: 56px 32px; text-align: center; }
+  .cta-card h2 { margin: 0 0 14px; font-size: 28px; }
+  .cta-card h2 .step { display: none; }
+  .cta-card p { color: var(--muted); margin: 0 auto 28px; max-width: 460px; font-size: 16px; }
+  .btn-primary { display: inline-block; background: var(--accent); color: white; font-family: 'Inter',system-ui,sans-serif; font-size: 15px; font-weight: 600; padding: 14px 28px; border-radius: 6px; text-decoration: none; letter-spacing: 0.01em; }
+  .btn-primary:hover { background: #6e2c10; }
+
+  footer { max-width: 720px; margin: 32px auto 0; padding: 32px 24px 48px; border-top: 1px solid var(--rule); font-family: 'Inter',system-ui,sans-serif; font-size: 13px; color: var(--muted); text-align: center; line-height: 1.8; }
+  footer a { color: var(--muted); text-decoration: underline; }
+
+  @media (max-width: 700px) {
+    .hero { padding: 32px 0 40px; }
+    .hero h1 { font-size: 32px; }
+    .hero .lede { font-size: 17px; }
+    .hero .meta span + span { padding-left: 0; border-left: none; }
+    .hero .meta span { display: block; margin-bottom: 4px; }
+    section { padding: 40px 0; }
+    h2 { font-size: 22px; }
+    .timeline { grid-template-columns: 1fr; }
+    .cta-card { padding: 40px 20px; }
+  }
+</style>
+</head>
+<body>
+<main>
+
+<p class="crumb"><a href="/">← ve-work</a></p>
+
+<section class="hero">
+  <p class="kicker">Pre-flight checklist</p>
+  <h1>What you'll need before we start.</h1>
+  <p class="lede">~15 minutes to gather, ~24 hours until your first shortlist lands. Read this once, then ping me.</p>
+  <p class="meta">
+    <span>5 things to gather</span>
+    <span>5 concepts to grasp</span>
+    <span>~15 min prep</span>
+  </p>
+</section>
+
+<section>
+  <h2><span class="step">Part 1</span>Stuff to have ready</h2>
+  <ul class="check-list">
+
+    <li class="check-item">
+      <div class="box">01</div>
+      <div>
+        <h3>Your LinkedIn profile as a PDF</h3>
+        <p class="desc">On LinkedIn → your profile page → <strong>"More"</strong> button (top-right, next to "Open to") → <strong>"Save to PDF"</strong>. Send me the file.</p>
+        <p class="note">Heads up: the richer your LinkedIn, the better the tailoring. If a role on your profile is two lines long, the AI has nothing to work with. Spend 10 minutes filling in real bullets <em>before</em> you export — it pays back tenfold.</p>
+      </div>
+    </li>
+
+    <li class="check-item">
+      <div class="box">02</div>
+      <div>
+        <h3>3–8 role keywords you'd actually take</h3>
+        <p class="desc">Be honest — these are the filter. Too broad means noise, too narrow means nothing surfaces.</p>
+        <p class="examples">"head of product", "founder in residence", "AI product lead", "VP engineering", "chief of staff"</p>
+        <p class="note">Too vague: "product", "manager", "tech". You'll iterate these in week 1 — that's the normal flow, not a sign you got it wrong.</p>
+      </div>
+    </li>
+
+    <li class="check-item">
+      <div class="box">03</div>
+      <div>
+        <h3>Locations</h3>
+        <p class="desc">Cities and/or <code>Remote</code>. Multiple is fine. Be specific — <em>"Europe"</em> is too broad, <em>"London, Lisbon, Amsterdam, Remote (EU)"</em> is right.</p>
+      </div>
+    </li>
+
+    <li class="check-item">
+      <div class="box">04</div>
+      <div>
+        <h3>Hard NOs <span class="tag">optional</span></h3>
+        <p class="desc">Things to filter out aggressively. The triage layer takes these literally, so be plain-spoken.</p>
+        <p class="examples">"no equity-only", "no crypto", "no agency", "skip Meta + Amazon"</p>
+      </div>
+    </li>
+
+    <li class="check-item">
+      <div class="box">05</div>
+      <div>
+        <h3>Your email</h3>
+        <p class="desc">For your dashboard login at <code>work.velab.org</code>. I'll send the password to you separately (not in the same email).</p>
+      </div>
+    </li>
+
+  </ul>
+</section>
+
+<section>
+  <h2><span class="step">Part 2</span>Concepts to grasp before day 1</h2>
+  <ol class="concepts">
+
+    <li class="concept">
+      <h4>Two URLs, two audiences</h4>
+      <p><strong>work.velab.org/work/p/&lt;you&gt;</strong> is your private kitchen — queue, applications log, profile editor. <strong>&lt;your-slug&gt;.here.now</strong> is your dining room — polished, read-only, password-protected, what you share with mentors or recruiters. Same data underneath, different posture.</p>
+    </li>
+
+    <li class="concept">
+      <h4>The robot doesn't apply for you</h4>
+      <p>It discovers, triages, tailors. The "click submit on LinkedIn" step stays yours. Auto-apply is what ATS systems flag and what gets ghosted — the "I read the JD and chose to apply" signal is the whole point.</p>
+    </li>
+
+    <li class="concept">
+      <h4>Tailoring is on-demand, not automatic</h4>
+      <p>New roles appear on your dashboard daily. You pick the ones you actually want to apply to → send me the URL → CV + cover letter back in ~30 seconds. Tailoring 30 roles a day is wasteful and dilutes quality; tailoring 3 you actually want is the point.</p>
+    </li>
+
+    <li class="concept">
+      <h4>Keywords <em>are</em> the filter</h4>
+      <p>Garbage in, garbage out. If your week-1 results feel noisy or sparse, the keywords are the lever — we'll tune them. That's the normal flow, not a failure.</p>
+    </li>
+
+    <li class="concept">
+      <h4>Your data lives on a VM I own</h4>
+      <p>Not Vercel, not Google Drive, not OpenAI's servers. Your LinkedIn PDF, your applications log, your dashboard — all on <code>ve-code</code>. Nothing leaves unless you intentionally share your here.now URL.</p>
+    </li>
+
+  </ol>
+</section>
+
+<section>
+  <h2><span class="step">Part 3</span>What to expect</h2>
+  <div class="timeline">
+    <div class="tl-cell">
+      <p class="day">Day 1</p>
+      <p class="what">You send PDF + keywords. By morning, your dashboard has ~10–15 roles waiting. You log in, scan, mark 1–2 worth tailoring.</p>
+    </div>
+    <div class="tl-cell">
+      <p class="day">Day 7</p>
+      <p class="what">You've refined keywords once (too broad or too narrow), tailored ~3–5 CVs, applied to 2. You have a feel for which roles cluster and which don't.</p>
+    </div>
+    <div class="tl-cell">
+      <p class="day">Day 30</p>
+      <p class="what">~350 discovered, ~150 passed triage, ~25 considered, ~7 applied to. Conversion is up to your background and the market — but the funnel works.</p>
+    </div>
+  </div>
+  <p style="margin-top:28px; max-width:660px; color:var(--ink); font-size:15.5px; line-height:1.65;"><strong>Two things you get that aren't on LinkedIn:</strong> your daily shortlist also pulls roles from company career pages and other job boards, and — for the companies you're targeting — points you to real people inside with a school/alumni tie and a suggested way to reach out. Warm intros, not cold DMs.</p>
+</section>
+
+<section>
+  <h2><span class="step">Part 4</span>Be calibrated — what it WON'T do</h2>
+  <div class="wont-list">
+    <ul>
+      <li><strong>Apply for you.</strong> Deliberate. Auto-apply gets you flagged.</li>
+      <li><strong>Fix a sparse LinkedIn.</strong> Better PDF in = better tailoring out.</li>
+      <li><strong>Find roles you didn't ask for.</strong> The keywords are the filter. Broaden them if you want broader.</li>
+      <li><strong>Cold-DM recruiters on LinkedIn.</strong> Against ToS, kills your account, doesn't work anyway.</li>
+      <li><strong>Promise interviews.</strong> It optimises for quality applications. Conversion is up to your background and the market.</li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <div class="cta-card">
+    <h2>Got everything?</h2>
+    <p>Send me your PDF + keywords + locations and I'll set you up tonight. First results land within 24 hours.</p>
+    <a class="btn-primary" href="/#request">Request access →</a>
+  </div>
+</section>
+
+</main>
+<footer>
+  <p>Built by Alet at <a href="https://velab.org">velab.org</a> · Privacy: your data lives on my private VM, never on third-party platforms · No analytics, no telemetry, no tracking</p>
+  <p>
+    <a href="/">Back to main</a> ·
+    <a href="https://freeintelligence.ai/vework/">Long-form explainer</a> ·
+    <a href="https://github.com/collectivewinca/ve-work">Source code</a> ·
+    <a href="https://velab.org">velab.org</a>
+  </p>
+</footer>
+</body>
+</html>
